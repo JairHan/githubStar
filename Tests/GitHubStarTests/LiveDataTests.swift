@@ -20,6 +20,12 @@ struct DataValidation {
             precondition(Set(repos.map(\.id)).count == repos.count)
             print("PASS: real weekly HTML, \(repos.count) repositories")
         }
+        if let clientID = ProcessInfo.processInfo.environment["GITHUBSTAR_OAUTH_CHECK_CLIENT_ID"] {
+            let code = try await GitHubOAuthClient().requestCode(clientID: clientID)
+            precondition(code.user_code.count == 9 && code.user_code.contains("-"))
+            precondition(code.expires_in > 0 && code.interval > 0)
+            print("PASS: registered OAuth App accepts real Device Flow requests (no account authorization performed)")
+        }
         if ProcessInfo.processInfo.environment["GITHUBSTAR_LIVE_TEST"] == "1" {
             let client = GitHubClient()
             let result = try await client.search(query: "repo:swiftlang/swift", language: "", page: 1)

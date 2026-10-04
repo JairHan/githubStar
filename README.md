@@ -49,7 +49,9 @@ GITHUBSTAR_LIVE_TEST=1 ./script/test.sh
 
 ## 发行者：一次性配置 GitHub 登录
 
-1. 打开 [GitHub OAuth App 注册页](https://github.com/settings/applications/new)。Application name 填 `GitHub Star`。
+本项目已注册 OAuth App **Star Explorer for macOS**，并将公开 Client ID 放入 `Config/GitHubOAuthClientID.txt`。使用本项目发行构建的用户无需另行配置。维护者可在 [OAuth App 设置](https://github.com/settings/applications/3904132)管理 Device Flow 和授权设置。
+
+1. 打开 [GitHub OAuth App 注册页](https://github.com/settings/applications/new)。Application name 填 `Star Explorer for macOS`（GitHub 不允许名称以 GitHub 或 Gist 开头）。
 2. Homepage URL 可填本项目地址 `https://github.com/JairHan/githubStar`；Authorization callback URL 可填 `http://127.0.0.1/callback`。设备授权流程不使用这个回调地址。
 3. 创建后在 OAuth App 设置中勾选 **Enable Device Flow**。
 4. 复制公开的 **Client ID**，写入 `Config/GitHubOAuthClientID.txt`（仅写 ID 一行），或使用构建环境变量 `GITHUBSTAR_OAUTH_CLIENT_ID`。不要填写 Client Secret。
