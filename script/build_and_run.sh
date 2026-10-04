@@ -5,13 +5,29 @@ APP_NAME="GitHubStar"
 BUNDLE_ID="com.jair.githubstar"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+BUILD_CONFIGURATION="debug"
+OAUTH_CLIENT_ID="${GITHUBSTAR_OAUTH_CLIENT_ID:-}"
+if [[ -z "$OAUTH_CLIENT_ID" && -f "$ROOT_DIR/Config/GitHubOAuthClientID.txt" ]]; then
+  OAUTH_CLIENT_ID="$(tr -d '[:space:]' < "$ROOT_DIR/Config/GitHubOAuthClientID.txt")"
+fi
+if [[ -n "$OAUTH_CLIENT_ID" && ! "$OAUTH_CLIENT_ID" =~ ^[A-Za-z0-9]+$ ]]; then
+  echo "Invalid OAuth Client ID: use the public Client ID, not a secret or token." >&2
+  exit 2
+fi
+if [[ "$MODE" == "--release" ]]; then
+  if [[ -z "$OAUTH_CLIENT_ID" ]]; then
+    echo "Release requires an OAuth Client ID. Set GITHUBSTAR_OAUTH_CLIENT_ID or Config/GitHubOAuthClientID.txt." >&2
+    exit 2
+  fi
+  BUILD_CONFIGURATION="release"
+fi
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
 STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/githubstar-app.XXXXXX")"
 trap 'rm -rf "$STAGING_DIR"' EXIT
 STAGED_BUNDLE="$STAGING_DIR/$APP_NAME.app"
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
-swift build
-BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
+swift build -c "$BUILD_CONFIGURATION"
+BUILD_BINARY="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)/$APP_NAME"
 mkdir -p "$STAGED_BUNDLE/Contents/MacOS"
 cp "$BUILD_BINARY" "$STAGED_BUNDLE/Contents/MacOS/$APP_NAME"
 cat > "$STAGED_BUNDLE/Contents/Info.plist" <<PLIST
@@ -27,6 +43,7 @@ cat > "$STAGED_BUNDLE/Contents/Info.plist" <<PLIST
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>GitHubOAuthClientID</key><string>$OAUTH_CLIENT_ID</string>
 </dict></plist>
 PLIST
 # Sign outside Desktop's file provider, which may attach FinderInfo attributes.
@@ -41,5 +58,6 @@ run) /usr/bin/open -n "$APP_BUNDLE" ;;
 --logs|logs) /usr/bin/open -n "$APP_BUNDLE"; /usr/bin/log stream --info --style compact --predicate "process == \"$APP_NAME\"" ;;
 --telemetry|telemetry) /usr/bin/open -n "$APP_BUNDLE"; /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\"" ;;
 --build-only) ;;
-*) echo "usage: $0 [run|--verify|--debug|--logs|--telemetry|--build-only]" >&2; exit 2 ;;
+--release) echo "Built $APP_BUNDLE (OAuth Client ID embedded; local ad-hoc signature)" ;;
+*) echo "usage: $0 [run|--verify|--debug|--logs|--telemetry|--build-only|--release]" >&2; exit 2 ;;
 esac

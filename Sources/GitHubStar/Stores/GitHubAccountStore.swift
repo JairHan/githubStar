@@ -2,8 +2,8 @@ import SwiftUI
 
 @MainActor
 final class GitHubAccountStore: ObservableObject {
-    @Published var clientID: String = UserDefaults.standard.string(forKey: "githubOAuthClientID") ?? "" {
-        didSet { UserDefaults.standard.set(clientID, forKey: "githubOAuthClientID") }
+    @Published var developmentClientID: String = UserDefaults.standard.string(forKey: "githubOAuthClientID") ?? "" {
+        didSet { UserDefaults.standard.set(developmentClientID, forKey: "githubOAuthClientID") }
     }
     @Published private(set) var user: GitHubUser?
     @Published private(set) var isBusy = false
@@ -17,6 +17,9 @@ final class GitHubAccountStore: ObservableObject {
     private var loginTask: Task<Void, Never>?
     private var operation = UUID()
     private var didRestore = false
+    var bundledClientID: String? { Bundle.main.object(forInfoDictionaryKey: "GitHubOAuthClientID") as? String }
+    var clientID: String { GitHubOAuthConfiguration.clientID(bundled: bundledClientID, developmentOverride: developmentClientID) }
+    var hasBundledClientID: Bool { !(bundledClientID ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     var isSignedIn: Bool { user != nil && credential != nil }
     var accessToken: String? { credential?.isExpired == false ? credential?.token : nil }
     func restore() async {
@@ -36,7 +39,7 @@ final class GitHubAccountStore: ObservableObject {
     }
     func login() {
         let id = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !id.isEmpty else { error = "请先填写 OAuth App 的 Client ID。"; return }
+        guard !id.isEmpty else { error = "此构建尚未启用 GitHub 登录，请联系发行者获取已配置的版本。"; return }
         cancelLogin()
         let current = operation
         error = nil; isBusy = true

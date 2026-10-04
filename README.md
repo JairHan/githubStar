@@ -47,19 +47,29 @@ GITHUBSTAR_LIVE_TEST=1 ./script/test.sh
 
 登录令牌保存在 macOS 钥匙串，不写入项目、JSON、UserDefaults 或日志。账号数据只保存在内存中，切换账号或退出后清空；授权后的搜索结果不写入离线缓存。旧版 `favorites.json` 会保留，但不再作为 Stars 列表，也不会自动批量 Star。
 
-## 首次配置 GitHub 登录
+## 发行者：一次性配置 GitHub 登录
 
 1. 打开 [GitHub OAuth App 注册页](https://github.com/settings/applications/new)。Application name 填 `GitHub Star`。
 2. Homepage URL 可填本项目地址 `https://github.com/JairHan/githubStar`；Authorization callback URL 可填 `http://127.0.0.1/callback`。设备授权流程不使用这个回调地址。
 3. 创建后在 OAuth App 设置中勾选 **Enable Device Flow**。
-4. 复制 **Client ID**，在应用侧栏点击“登录 GitHub”，或到设置里的“登录与 OAuth App 配置”填入。不要填写 Client Secret。
-5. 点击“在浏览器中授权登录”，将应用显示的验证码输入 GitHub 网页并完成授权。
+4. 复制公开的 **Client ID**，写入 `Config/GitHubOAuthClientID.txt`（仅写 ID 一行），或使用构建环境变量 `GITHUBSTAR_OAUTH_CLIENT_ID`。不要填写 Client Secret。
+5. 运行 `./script/build_and_run.sh --release`，生成优化构建的应用包。Client ID 会内置在包的 Info.plist 中；缺少 Client ID 时脚本拒绝生成发行构建。
+
+也可以临时指定 Client ID 打包：
+
+```bash
+GITHUBSTAR_OAUTH_CLIENT_ID=你的公开ClientID ./script/build_and_run.sh --release
+```
+
+注册 OAuth App 和配置 Client ID 只由发行者做一次。普通用户下载已配置的应用后，只需点击“登录 GitHub”、在 GitHub 网页输入应用生成的八位验证码并允许授权，无需注册 OAuth App 或填写 Client ID。
+
+开发构建仍可在“设置 → 高级：开发者 OAuth 配置”填写本机 Client ID。内置的发行配置始终优先，本机旧配置不会覆盖它。普通登录面板不展示开发者注册流程；未配置的构建会说明登录尚未启用。
 
 依据 [GitHub Device Flow 文档](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow)实现验证码轮询、取消、拒绝及过期处理，无需服务器或内置 Client Secret。申请 `public_repo` scope 以管理公开仓库的 Star；GitHub OAuth 将其与公开仓库写权限合并，应用仅调用 Star 接口。若 OAuth App 配置了令牌过期，则过期后需要重新授权；当前不自动刷新令牌。
 
 退出登录会删除本机钥匙串令牌；若要撤销 GitHub 授权，可到 [GitHub 应用授权设置](https://github.com/settings/applications)操作。该功能不复用本机 `gh` 的登录凭据。
 
-测试通过 URLProtocol 模拟授权等待、拒绝、取消、过期、Star/Unstar 成功及失败、账号失效和 Stars 分页，不会对真实账号执行 Star。完整的真人授权流程需先填写有效 Client ID，再由账号持有人在 GitHub 完成授权。
+测试通过 URLProtocol 模拟授权等待、拒绝、取消、过期、Star/Unstar 成功及失败、账号失效和 Stars 分页，不会对真实账号执行 Star。完整的真人授权流程需发行者先内置有效 Client ID，再由账号持有人在 GitHub 完成授权。
 
 构建脚本使用本机临时签名，产物适合本机运行，尚未使用 Developer ID 签名和 Apple 公证，不是正式分发包。
 

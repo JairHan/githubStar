@@ -20,14 +20,11 @@ struct AccountView: View {
             }
             if let error = account.error { Text(error).font(.callout).foregroundStyle(.orange).textSelection(.enabled) }
             Divider()
-            TextField("OAuth App Client ID", text: $account.clientID).textFieldStyle(.roundedBorder).disabled(account.isBusy)
-            DisclosureGroup("首次使用：创建 OAuth App") {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("1. 在 GitHub 创建 OAuth App，名称填写 GitHub Star。")
-                    Text("2. Homepage URL 填写本项目的 GitHub 地址，Callback URL 可填写 http://127.0.0.1/callback（设备授权不使用该地址）。")
-                    Text("3. 在应用设置勾选 Enable Device Flow，将 Client ID 粘贴到上方。无需 Client Secret。")
-                    Link("打开 OAuth App 注册页面", destination: URL(string: "https://github.com/settings/applications/new")!)
-                }.font(.caption).foregroundStyle(.secondary).padding(.top, 8)
+            if account.clientID.isEmpty {
+                Label("此构建尚未启用 GitHub 登录", systemImage: "info.circle").foregroundStyle(.secondary)
+                Text("请联系发行者获取已配置登录的版本。浏览热门仓库和搜索仍然可用。").font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text("点击登录，在 GitHub 网页输入下方生成的验证码并允许授权，即可同步你的 Stars。").font(.callout).foregroundStyle(.secondary)
             }
             Text("授权请求 public_repo，用于公开仓库的 Star。GitHub 将此权限与公开仓库写权限合并；本应用只调用 Star 接口，不修改仓库内容。").font(.caption).foregroundStyle(.secondary)
             if let code = account.userCode {

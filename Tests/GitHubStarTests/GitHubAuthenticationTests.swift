@@ -17,6 +17,10 @@ final class MockGitHubProtocol: URLProtocol {
 }
 struct GitHubAuthenticationTests {
     static func run() async throws {
+        precondition(GitHubOAuthConfiguration.clientID(bundled: "  PublisherClient  ", developmentOverride: "OldLocalClient") == "PublisherClient")
+        precondition(GitHubOAuthConfiguration.clientID(bundled: nil, developmentOverride: " DevClient ") == "DevClient")
+        precondition(GitHubOAuthConfiguration.clientID(bundled: "", developmentOverride: " ").isEmpty)
+        print("PASS: bundled publisher OAuth ID takes precedence over local development settings")
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [MockGitHubProtocol.self]
         let session = URLSession(configuration: config)

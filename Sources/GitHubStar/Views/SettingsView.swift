@@ -7,8 +7,19 @@ struct SettingsView: View {
         Form {
             Section("GitHub 账号") {
                 Text(account.user.map { "当前账号：@" + $0.login } ?? "尚未登录")
-                Button("登录与 OAuth App 配置") { showsAccount = true }
+                Button("管理 GitHub 登录") { showsAccount = true }
                 Text("登录后点击 Star / 取消 Star 会直接更新 GitHub。令牌保存在 macOS 钥匙串。登录过期后请重新授权。").font(.caption).foregroundStyle(.secondary)
+            }
+            Section {
+                DisclosureGroup("高级：开发者 OAuth 配置") {
+                    if account.hasBundledClientID {
+                        Text("当前版本已内置发行者的 OAuth App，无需额外配置。").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        TextField("开发用 Client ID", text: $account.developmentClientID).textFieldStyle(.roundedBorder).disabled(account.isBusy)
+                        Text("仅供开发与自编译使用。发行者应注册一次 OAuth App，启用 Device Flow，并在打包时内置公开 Client ID。不要填写 Client Secret。").font(.caption).foregroundStyle(.secondary)
+                        Link("注册 GitHub OAuth App", destination: URL(string: "https://github.com/settings/applications/new")!)
+                    }
+                }
             }
             Section("数据来源") {
                 Text("热门及涨星：GitHub Trending。每周涨星仅对周榜内仓库按新增 Star 排序。")
