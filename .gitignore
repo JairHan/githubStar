@@ -1,0 +1,30 @@
+# macOS metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Swift Package Manager / Xcode build output
+.build/
+.swiftpm/
+DerivedData/
+.build-*/
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+
+# Generated application bundles and archives
+dist/
+*.dSYM/
+*.xcarchive/
+
+# Local editor configuration
+.vscode/
+.idea/
+
+# Local secrets and logs
+.env
+.env.*
+!.env.example
+*.log
