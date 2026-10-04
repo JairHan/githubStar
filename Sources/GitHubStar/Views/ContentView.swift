@@ -3,28 +3,20 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var store: RepositoryStore
     @ObservedObject var account: GitHubAccountStore
-    @StateObject private var feedBrowser = FeedBrowserStore()
+    @ObservedObject var activity: ActivityStore
     @FocusState private var searchFocused: Bool
     private let languages = ["", "Swift", "Python", "TypeScript", "JavaScript", "Rust", "Go", "Java", "C", "C++", "Ruby", "Kotlin"]
     var body: some View {
-        Group {
-            if store.feed == .activity {
-                NavigationSplitView {
-                    SidebarView(store: store, account: account)
-                } detail: {
-                    GitHubFeedView(browser: feedBrowser)
-                        .onChange(of: store.refreshID) { _, _ in feedBrowser.reload() }
-                }
-            } else {
-                repositoryLayout
-            }
-        }
+        repositoryLayout
         .navigationTitle(store.feed.title)
         .toolbar {
             ToolbarItem { Button { store.refreshID = UUID() } label: { Label("刷新", systemImage: "arrow.clockwise") }.help("刷新 ⌘R") }
             ToolbarItem { Button { store.feed = .search; searchFocused = true } label: { Label("搜索", systemImage: "magnifyingglass") }.keyboardShortcut("f", modifiers: .command) }
         }
-        .task(id: store.key) { await store.load() }
+        .task(id: store.key) {
+            if store.feed == .activity { await activity.load() }
+            else { await store.load() }
+        }
         .task { await account.restore() }
         .sheet(isPresented: $account.showsLogin, onDismiss: { account.cancelLogin() }) { AccountView(account: account).padding(24).frame(width: 520) }
     }
@@ -32,6 +24,10 @@ struct ContentView: View {
         NavigationSplitView {
             SidebarView(store: store, account: account)
         } content: {
+            if store.feed == .activity {
+                ActivityListView(activity: activity, account: account)
+                    .navigationSplitViewColumnWidth(min: 400, ideal: 570, max: 800)
+            } else {
             VStack(spacing: 0) {
                 header
                 if let error = store.error {
@@ -58,8 +54,11 @@ struct ContentView: View {
                 }
                 footer
             }.navigationSplitViewColumnWidth(min: 400, ideal: 570, max: 800)
+            }
         } detail: {
-            if let repo = store.selected {
+            if store.feed == .activity {
+                ActivityDetailView(activity: activity, store: store, account: account)
+            } else if let repo = store.selected {
                 RepositoryDetailView(repo: repo, saved: store.isSaved(repo), signedIn: account.isSignedIn, busy: store.starIsBusy(repo), error: store.starError, onSave: { store.requestStar(repo) })
                     .task(id: repo.id + account.sessionID.uuidString) { await store.checkStar(repo) }
             } else {

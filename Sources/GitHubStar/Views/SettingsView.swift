@@ -22,7 +22,7 @@ struct SettingsView: View {
                 }
             }
             Section("GitHub 动态") {
-                Text("动态使用 GitHub 官方网页，首次需要在页面内登录。网页登录会保留，与应用的 Star 授权独立；退出 Star 账号不会退出网页。")
+                Text("动态复用当前 GitHub 授权，通过 Events API 展示收到的事件，最多 300 条、最近 30 天；存在更新延迟，不含网页 Feed 推荐内容。动态与仓库详情仅在内存中加载，退出账号后清空。")
             }
             Section("数据来源") {
                 Text("热门及涨星：GitHub Trending。每周涨星仅对周榜内仓库按新增 Star 排序。")

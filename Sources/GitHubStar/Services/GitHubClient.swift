@@ -9,6 +9,9 @@ struct GitHubClient {
     var token: String? = nil
     var session: URLSession = .shared
     func fetch(_ url: URL, api: Bool = false) async throws -> Data {
+        try await fetchResponse(url, api: api).0
+    }
+    private func fetchResponse(_ url: URL, api: Bool = false) async throws -> (Data, HTTPURLResponse) {
         var request = URLRequest(url: url)
         request.timeoutInterval = 25
         request.setValue("GitHubStar-macOS", forHTTPHeaderField: "User-Agent")
@@ -22,7 +25,7 @@ struct GitHubClient {
         if http.statusCode == 401 { throw GitHubError.unauthorized }
         if http.statusCode == 403 || http.statusCode == 429 { throw GitHubError.message("GitHub 拒绝请求：权限不足或请求额度耗尽，请检查授权或稍后重试。") }
         guard (200..<300).contains(http.statusCode) else { throw GitHubError.message("GitHub 返回 HTTP \(http.statusCode)，请检查查询语法或稍后重试。") }
-        return data
+        return (data, http)
     }
     func trending(weekly: Bool, language: String) async throws -> [Repository] {
         var url = URLComponents(string: "https://github.com/trending")!
@@ -47,6 +50,33 @@ struct GitHubClient {
         guard token != nil else { throw GitHubError.unauthorized }
         let data = try await fetch(URL(string: "https://api.github.com/user")!, api: true)
         return try JSONDecoder().decode(GitHubUser.self, from: data)
+    }
+    func receivedEvents(login: String, page: Int) async throws -> ActivityPage {
+        guard token != nil else { throw GitHubError.unauthorized }
+        guard (1...3).contains(page), !login.isEmpty,
+              login.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }) else {
+            throw GitHubError.message("动态请求参数无效。")
+        }
+        var url = URLComponents(string: "https://api.github.com")!
+        url.path = "/users/" + login + "/received_events"
+        url.queryItems = [URLQueryItem(name: "per_page", value: "100"), URLQueryItem(name: "page", value: String(page))]
+        let (data, response) = try await fetchResponse(url.url!, api: true)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let events = try decoder.decode([GitHubEvent].self, from: data)
+        let next = response.value(forHTTPHeaderField: "Link")?.contains("rel=\"next\"") ?? (events.count == 100)
+        return ActivityPage(items: events, hasMore: next && page < 3)
+    }
+    func repository(fullName: String) async throws -> Repository {
+        let parts = fullName.split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 2, parts.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." &&
+            $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "-_.".contains($0)) } }) else {
+            throw GitHubError.message("仓库名称无效。")
+        }
+        var url = URLComponents(string: "https://api.github.com")!
+        url.path = "/repos/" + fullName
+        let data = try await fetch(url.url!, api: true)
+        return try JSONDecoder().decode(APIRepo.self, from: data).repository
     }
     func starred(page: Int) async throws -> StarredPage {
         guard token != nil else { throw GitHubError.unauthorized }

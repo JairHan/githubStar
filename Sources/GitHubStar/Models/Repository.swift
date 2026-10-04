@@ -26,7 +26,7 @@ enum Feed: String, CaseIterable, Identifiable {
     }
     var subtitle: String {
         switch self {
-        case .activity: "浏览 GitHub 官方动态与推荐"
+        case .activity: "查看 GitHub 事件动态与相关仓库"
         case .daily: "发现今天备受关注的开源项目"
         case .weekly: "GitHub Trending 周榜 · 按本周新增 Star 排序"
         case .allTime: "按累计 Star 排序，探索广受欢迎的仓库"

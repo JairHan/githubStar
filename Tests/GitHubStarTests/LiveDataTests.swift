@@ -7,7 +7,7 @@ struct DataValidation {
         catch { FileHandle.standardError.write(Data("FAIL: \(error.localizedDescription)\n".utf8)); exit(1) }
     }
     static func run() async throws {
-        FeedNavigationPolicyTests.run()
+        try await GitHubActivityTests.run()
         try await GitHubAuthenticationTests.run()
         TrendingParserTests.weeklyStatsAndEntities()
         TrendingParserTests.rejectsNonRepositoryHTML()

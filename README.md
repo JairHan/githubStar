@@ -4,7 +4,7 @@
 
 ## 功能
 
-- GitHub 动态：应用内浏览 GitHub 官方 Feed，支持前进、后退、返回动态首页和浏览器打开。
+- GitHub 动态：原生事件列表与仓库详情，复用应用登录，支持类型筛选、关键词过滤、分页和直接 Star。
 - 今日热门：GitHub Trending 日榜，显示今日新增 Star。
 - 每周涨星：GitHub Trending 周榜，按本周新增 Star 排序。
 - 总星榜：GitHub 搜索 API，按累计 Star 降序。
@@ -40,9 +40,11 @@ GITHUBSTAR_LIVE_TEST=1 ./script/test.sh
 
 ## GitHub 动态
 
-侧栏选择“GitHub 动态”即可浏览 [GitHub Feed](https://github.com/feed)。通过系统 WebKit 展示官方页面；首次需要在页面内登录 GitHub，网页会话持久保存在本机。切换侧栏会保留页面与滚动位置，⌘R 刷新当前页面。GitHub 站内链接在应用内打开，外部链接交给默认浏览器。
+侧栏选择“GitHub 动态”即可查看当前账号收到的事件。使用与其他模块一致的 SwiftUI 三栏界面，通过 [GitHub Events API](https://docs.github.com/en/rest/activity/events#list-events-received-by-the-authenticated-user)读取数据，复用钥匙串中的现有 OAuth 授权，无需额外网页登录。
 
-动态网页登录与 Star 的 OAuth 授权独立，应用不会向网页注入授权令牌。退出应用的 Star 账号不会退出网页登录；要更换动态账号，请在网页的 GitHub 账号菜单中退出。若某种登录方式无法在内嵌页面完成，可用“在浏览器打开”继续（外部浏览器的登录会话不会同步到应用内）。
+列表包含 Star、Fork、发布、推送、Issue 和 Pull Request 等事件，可按类型或关键词筛选已加载项目。选择事件后显示事件摘要和真实仓库详情，支持 Star / 取消 Star、打开事件和仓库；⌘R 刷新，⌘O 打开选中仓库，⌘D Star。每页 100 条，最多加载 300 条，仅涵盖最近 30 天。Events API 可能有 30 秒至 6 小时的延迟，并不保证实时更新。
+
+这里展示的是 API 提供的事件流，与网页 Feed 的推荐流存在差异，不包含网页的全部推荐内容。现有授权仍只申请 `public_repo`，不新增私有仓库权限。动态与仓库详情仅保存在内存，退出或切换账号时清空。
 
 ## 数据口径与限制
 
