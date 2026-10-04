@@ -20,7 +20,7 @@
 ./script/build_and_run.sh
 ```
 
-脚本构建并生成 `dist/GitHubStar.app`，然后打开应用。也可直接双击该应用。Codex 的 Run 按钮已配置。
+每次构建同时生成 `dist/GitHubStar.app` 和压缩安装镜像 `dist/GitHubStar.dmg`。默认构建后打开应用；Codex 的 Run 按钮已配置。打开 DMG 后，将 GitHubStar 拖入镜像中的 Applications 快捷入口即可安装。
 
 使用 Xcode 时打开 `Package.swift`。构建只需要 Apple Command Line Tools 中的 Swift 工具链。
 
@@ -64,7 +64,7 @@ GITHUBSTAR_LIVE_TEST=1 ./script/test.sh
 2. Homepage URL 可填本项目地址 `https://github.com/JairHan/githubStar`；Authorization callback URL 可填 `http://127.0.0.1/callback`。设备授权流程不使用这个回调地址。
 3. 创建后在 OAuth App 设置中勾选 **Enable Device Flow**。
 4. 复制公开的 **Client ID**，写入 `Config/GitHubOAuthClientID.txt`（仅写 ID 一行），或使用构建环境变量 `GITHUBSTAR_OAUTH_CLIENT_ID`。不要填写 Client Secret。
-5. 运行 `./script/build_and_run.sh --release`，生成优化构建的应用包。Client ID 会内置在包的 Info.plist 中；缺少 Client ID 时脚本拒绝生成发行构建。
+5. 运行 `./script/build_and_run.sh --release`，同时生成优化构建的 `.app` 与 `.dmg`，不自动启动应用。Client ID 会内置在包的 Info.plist 中；缺少 Client ID 时脚本拒绝生成发行构建。
 
 也可以临时指定 Client ID 打包：
 
@@ -82,7 +82,9 @@ GITHUBSTAR_OAUTH_CLIENT_ID=你的公开ClientID ./script/build_and_run.sh --rele
 
 测试通过 URLProtocol 模拟授权等待、拒绝、取消、过期、Star/Unstar 成功及失败、账号失效和 Stars 分页，不会对真实账号执行 Star。完整的真人授权流程需发行者先内置有效 Client ID，再由账号持有人在 GitHub 完成授权。
 
-构建脚本使用本机临时签名，产物适合本机运行，尚未使用 Developer ID 签名和 Apple 公证，不是正式分发包。
+构建脚本在本机临时目录中签名并校验应用，再创建和验证 DMG，避免 Desktop 文件提供程序附加的元数据影响镜像内的签名。安装镜像包含应用与指向 `/Applications` 的快捷入口；生成的应用包和镜像均位于已被 Git 忽略的 `dist/`。
+
+当前仍使用本机临时签名，尚未使用 Developer ID 签名和 Apple 公证。DMG 可作为发行附件，但打包不会解决 Gatekeeper 信任问题；正式面向其他用户发行前需完成 Developer ID 签名与公证。
 
 ## 软件图标
 

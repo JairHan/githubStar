@@ -5,6 +5,16 @@ APP_NAME="GitHubStar"
 BUNDLE_ID="com.jair.githubstar"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+usage() {
+  echo "usage: $0 [run|--verify|--debug|--logs|--telemetry|--build-only|--release]"
+  echo "Every build creates dist/$APP_NAME.app and dist/$APP_NAME.dmg."
+  echo "Use --release for an optimized build without launching the app."
+}
+case "$MODE" in
+run|--verify|verify|--debug|debug|--logs|logs|--telemetry|telemetry|--build-only|--release) ;;
+--help|-h) usage; exit 0 ;;
+*) usage >&2; exit 2 ;;
+esac
 BUILD_CONFIGURATION="debug"
 OAUTH_CLIENT_ID="${GITHUBSTAR_OAUTH_CLIENT_ID:-}"
 if [[ -z "$OAUTH_CLIENT_ID" && -f "$ROOT_DIR/Config/GitHubOAuthClientID.txt" ]]; then
@@ -22,6 +32,7 @@ if [[ "$MODE" == "--release" ]]; then
   BUILD_CONFIGURATION="release"
 fi
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
+DMG_PATH="$ROOT_DIR/dist/$APP_NAME.dmg"
 STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/githubstar-app.XXXXXX")"
 trap 'rm -rf "$STAGING_DIR"' EXIT
 STAGED_BUNDLE="$STAGING_DIR/$APP_NAME.app"
@@ -54,9 +65,24 @@ cat > "$STAGED_BUNDLE/Contents/Info.plist" <<PLIST
 PLIST
 # Sign outside Desktop's file provider, which may attach FinderInfo attributes.
 codesign --force --sign - "$STAGED_BUNDLE" >/dev/null
+codesign --verify --strict "$STAGED_BUNDLE"
+
+# Package the validated staging bundle, before Desktop's file provider can add metadata.
+DMG_CONTENTS="$STAGING_DIR/dmg-contents"
+STAGED_DMG="$STAGING_DIR/$APP_NAME.dmg"
+mkdir -p "$DMG_CONTENTS"
+/usr/bin/ditto --norsrc --noextattr "$STAGED_BUNDLE" "$DMG_CONTENTS/$APP_NAME.app"
+ln -s /Applications "$DMG_CONTENTS/Applications"
+/usr/bin/hdiutil create -volname "GitHub Star" -srcfolder "$DMG_CONTENTS" \
+  -format UDZO -fs HFS+ "$STAGED_DMG"
+/usr/bin/hdiutil verify "$STAGED_DMG"
+
 mkdir -p "$ROOT_DIR/dist"
 rm -rf "$APP_BUNDLE"
 /usr/bin/ditto --norsrc --noextattr "$STAGED_BUNDLE" "$APP_BUNDLE"
+/usr/bin/ditto --norsrc --noextattr "$STAGED_DMG" "$DMG_PATH"
+echo "Built $APP_BUNDLE"
+echo "Built $DMG_PATH (compressed drag-to-Applications installer)"
 case "$MODE" in
 run) /usr/bin/open -n "$APP_BUNDLE" ;;
 --verify|verify) /usr/bin/open -n "$APP_BUNDLE"; sleep 1; pgrep -x "$APP_NAME" >/dev/null ;;
@@ -64,6 +90,5 @@ run) /usr/bin/open -n "$APP_BUNDLE" ;;
 --logs|logs) /usr/bin/open -n "$APP_BUNDLE"; /usr/bin/log stream --info --style compact --predicate "process == \"$APP_NAME\"" ;;
 --telemetry|telemetry) /usr/bin/open -n "$APP_BUNDLE"; /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\"" ;;
 --build-only) ;;
---release) echo "Built $APP_BUNDLE (OAuth Client ID embedded; local ad-hoc signature)" ;;
-*) echo "usage: $0 [run|--verify|--debug|--logs|--telemetry|--build-only|--release]" >&2; exit 2 ;;
+--release) echo "Release build: OAuth Client ID embedded; local ad-hoc signature (not notarized)." ;;
 esac
