@@ -9,7 +9,8 @@
 - 总星榜：GitHub 搜索 API，按累计 Star 降序。
 - 关键词搜索：支持 `swift`、`topic:ai`、`stars:>1000` 等 GitHub 查询语法。
 - 语言筛选、分页、仓库详情、打开 GitHub、复制链接。
-- 本地收藏及最近榜单缓存；请求失败时保留缓存并提示错误。
+- GitHub 设备授权登录、Star / 取消 Star、分页读取我的 Stars。
+- 公开榜单离线缓存；登录令牌保存至 macOS 钥匙串。
 - 原生侧栏、菜单、设置窗口，自动适应系统浅色及深色外观。
 
 ## 运行
@@ -34,7 +35,7 @@
 GITHUBSTAR_LIVE_TEST=1 ./script/test.sh
 ```
 
-快捷键：⌘F 搜索、⌘R 刷新、⌘O 打开仓库、⌘D 收藏。
+快捷键：⌘F 搜索、⌘R 刷新、⌘O 打开仓库、⌘D Star / 取消 Star。
 
 ## 数据口径与限制
 
@@ -42,7 +43,23 @@ GITHUBSTAR_LIVE_TEST=1 ./script/test.sh
 
 总星榜和搜索采用 [GitHub REST Search API](https://docs.github.com/en/rest/search/search#search-repositories)。每页 30 条，API 限制最多浏览前 1,000 条。匿名 API 额度有限，限流时请稍后刷新。GitHub 没有保证榜单数据的实时性。
 
-收藏仅保存在本机，不会执行 GitHub Star 操作。收藏中的数字为收藏时的快照。数据位于 `~/Library/Application Support/GitHubStar/`；榜单缓存和收藏为 JSON，不包含认证信息。
+登录后 Star / 取消 Star 会直接更新 GitHub 账号；操作成功后才更新界面状态。我的 Stars 每页 100 条，可继续加载；语言和关键词只筛选已加载的项目。Star 操作后会刷新列表以保持分页与服务器一致。
+
+登录令牌保存在 macOS 钥匙串，不写入项目、JSON、UserDefaults 或日志。账号数据只保存在内存中，切换账号或退出后清空；授权后的搜索结果不写入离线缓存。旧版 `favorites.json` 会保留，但不再作为 Stars 列表，也不会自动批量 Star。
+
+## 首次配置 GitHub 登录
+
+1. 打开 [GitHub OAuth App 注册页](https://github.com/settings/applications/new)。Application name 填 `GitHub Star`。
+2. Homepage URL 可填本项目地址 `https://github.com/JairHan/githubStar`；Authorization callback URL 可填 `http://127.0.0.1/callback`。设备授权流程不使用这个回调地址。
+3. 创建后在 OAuth App 设置中勾选 **Enable Device Flow**。
+4. 复制 **Client ID**，在应用侧栏点击“登录 GitHub”，或到设置里的“登录与 OAuth App 配置”填入。不要填写 Client Secret。
+5. 点击“在浏览器中授权登录”，将应用显示的验证码输入 GitHub 网页并完成授权。
+
+依据 [GitHub Device Flow 文档](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow)实现验证码轮询、取消、拒绝及过期处理，无需服务器或内置 Client Secret。申请 `public_repo` scope 以管理公开仓库的 Star；GitHub OAuth 将其与公开仓库写权限合并，应用仅调用 Star 接口。若 OAuth App 配置了令牌过期，则过期后需要重新授权；当前不自动刷新令牌。
+
+退出登录会删除本机钥匙串令牌；若要撤销 GitHub 授权，可到 [GitHub 应用授权设置](https://github.com/settings/applications)操作。该功能不复用本机 `gh` 的登录凭据。
+
+测试通过 URLProtocol 模拟授权等待、拒绝、取消、过期、Star/Unstar 成功及失败、账号失效和 Stars 分页，不会对真实账号执行 Star。完整的真人授权流程需先填写有效 Client ID，再由账号持有人在 GitHub 完成授权。
 
 构建脚本使用本机临时签名，产物适合本机运行，尚未使用 Developer ID 签名和 Apple 公证，不是正式分发包。
 

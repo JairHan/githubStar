@@ -11,7 +11,7 @@ struct RepositoryRow: View {
                 HStack {
                     Text(repo.fullName).font(.system(size: 14, weight: .semibold)).lineLimit(1)
                     Spacer(minLength: 2)
-                    if saved { Image(systemName: "bookmark.fill").foregroundStyle(.indigo).font(.caption) }
+                    if saved { Image(systemName: "star.fill").foregroundStyle(.indigo).font(.caption) }
                 }
                 Text(repo.description.isEmpty ? "这个项目暂时没有描述。" : repo.description).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 HStack(spacing: 16) {

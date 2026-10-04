@@ -19,10 +19,10 @@ enum Feed: String, CaseIterable, Identifiable {
     case daily, weekly, allTime, search, saved
     var id: String { rawValue }
     var title: String {
-        switch self { case .daily: "今日热门"; case .weekly: "每周涨星"; case .allTime: "总星榜"; case .search: "搜索仓库"; case .saved: "我的收藏" }
+        switch self { case .daily: "今日热门"; case .weekly: "每周涨星"; case .allTime: "总星榜"; case .search: "搜索仓库"; case .saved: "我的 Stars" }
     }
     var icon: String {
-        switch self { case .daily: "flame"; case .weekly: "chart.line.uptrend.xyaxis"; case .allTime: "star"; case .search: "magnifyingglass"; case .saved: "bookmark" }
+        switch self { case .daily: "flame"; case .weekly: "chart.line.uptrend.xyaxis"; case .allTime: "star"; case .search: "magnifyingglass"; case .saved: "star.fill" }
     }
     var subtitle: String {
         switch self {
@@ -30,7 +30,7 @@ enum Feed: String, CaseIterable, Identifiable {
         case .weekly: "GitHub Trending 周榜 · 按本周新增 Star 排序"
         case .allTime: "按累计 Star 排序，探索广受欢迎的仓库"
         case .search: "搜索名称、描述，或使用 GitHub 查询语法"
-        case .saved: "值得留意的项目，保存在这台 Mac 上"
+        case .saved: "GitHub 账号已 Star 的仓库 · 筛选已加载的项目"
         }
     }
 }

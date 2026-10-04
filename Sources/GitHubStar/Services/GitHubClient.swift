@@ -2,20 +2,25 @@ import Foundation
 
 enum GitHubError: LocalizedError {
     case message(String)
-    var errorDescription: String? { if case .message(let s) = self { return s }; return nil }
+    case unauthorized
+    var errorDescription: String? { switch self { case .message(let s): return s; case .unauthorized: return "GitHub 登录已失效，请重新授权。" } }
 }
 struct GitHubClient {
+    var token: String? = nil
+    var session: URLSession = .shared
     func fetch(_ url: URL, api: Bool = false) async throws -> Data {
         var request = URLRequest(url: url)
         request.timeoutInterval = 25
         request.setValue("GitHubStar-macOS", forHTTPHeaderField: "User-Agent")
         if api {
+            if let token { request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
         }
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw GitHubError.message("服务器响应无效。") }
-        if http.statusCode == 403 || http.statusCode == 429 { throw GitHubError.message("GitHub 请求额度暂时耗尽，请稍后重试。匿名搜索的额度较低。") }
+        if http.statusCode == 401 { throw GitHubError.unauthorized }
+        if http.statusCode == 403 || http.statusCode == 429 { throw GitHubError.message("GitHub 拒绝请求：权限不足或请求额度耗尽，请检查授权或稍后重试。") }
         guard (200..<300).contains(http.statusCode) else { throw GitHubError.message("GitHub 返回 HTTP \(http.statusCode)，请检查查询语法或稍后重试。") }
         return data
     }
@@ -37,10 +42,49 @@ struct GitHubClient {
         let result = try JSONDecoder().decode(APIResult.self, from: data)
         return SearchPage(items: result.items.map { $0.repository }, total: result.total_count, incomplete: result.incomplete_results)
     }
+
+    func currentUser() async throws -> GitHubUser {
+        guard token != nil else { throw GitHubError.unauthorized }
+        let data = try await fetch(URL(string: "https://api.github.com/user")!, api: true)
+        return try JSONDecoder().decode(GitHubUser.self, from: data)
+    }
+    func starred(page: Int) async throws -> StarredPage {
+        guard token != nil else { throw GitHubError.unauthorized }
+        let data = try await fetch(URL(string: "https://api.github.com/user/starred?sort=created&direction=desc&per_page=100&page=\(page)")!, api: true)
+        let repos = try JSONDecoder().decode([APIRepo].self, from: data).map { $0.repository }
+        return StarredPage(items: repos, hasMore: repos.count == 100)
+    }
+    func isStarred(_ repo: Repository) async throws -> Bool {
+        let status = try await starRequest(repo, method: "GET")
+        return status == 204
+    }
+    func setStarred(_ repo: Repository, starred: Bool) async throws {
+        _ = try await starRequest(repo, method: starred ? "PUT" : "DELETE")
+    }
+    private func starRequest(_ repo: Repository, method: String) async throws -> Int {
+        guard let token else { throw GitHubError.unauthorized }
+        var url = URLComponents(string: "https://api.github.com")!
+        url.path = "/user/starred/" + repo.fullName
+        var request = URLRequest(url: url.url!)
+        request.httpMethod = method
+        request.timeoutInterval = 25
+        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+        request.setValue("GitHubStar-macOS", forHTTPHeaderField: "User-Agent")
+        if method == "PUT" { request.httpBody = Data(); request.setValue("0", forHTTPHeaderField: "Content-Length") }
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw GitHubError.message("服务器响应无效。") }
+        if http.statusCode == 401 { throw GitHubError.unauthorized }
+        if http.statusCode == 204 || (method == "GET" && http.statusCode == 404) { return http.statusCode }
+        if http.statusCode == 403 { throw GitHubError.message("无法更新 Star：权限不足或 GitHub 限流，请检查授权后重试。") }
+        throw GitHubError.message("Star 请求失败（HTTP \(http.statusCode)），请稍后重试。")
+    }
 }
+struct StarredPage { let items: [Repository]; let hasMore: Bool }
 struct SearchPage { let items: [Repository]; let total: Int; let incomplete: Bool }
 private struct APIResult: Decodable { let items: [APIRepo]; let total_count: Int; let incomplete_results: Bool }
-private struct APIRepo: Decodable {
+struct APIRepo: Decodable {
     let full_name: String
     let description: String?
     let language: String?

@@ -3,6 +3,9 @@ import SwiftUI
 struct RepositoryDetailView: View {
     let repo: Repository
     let saved: Bool
+    let signedIn: Bool
+    let busy: Bool
+    let error: String?
     let onSave: () -> Void
     @ViewState private var copied = false
     var body: some View {
@@ -35,10 +38,16 @@ struct RepositoryDetailView: View {
                 Divider()
                 VStack(spacing: 10) {
                     Button { NSWorkspace.shared.open(repo.url) } label: { Label("在 GitHub 查看", systemImage: "arrow.up.right.square").frame(maxWidth: .infinity) }.buttonStyle(.borderedProminent).controlSize(.large)
-                    Button(action: onSave) { Label(saved ? "已收藏 · 点击取消" : "收藏仓库", systemImage: saved ? "bookmark.fill" : "bookmark").frame(maxWidth: .infinity) }.controlSize(.large)
+                    Button(action: onSave) {
+                        HStack {
+                            if busy { ProgressView().controlSize(.small) }
+                            Label(signedIn ? (saved ? "已 Star · 点击取消" : "Star 仓库") : "登录 GitHub 后 Star", systemImage: saved ? "star.fill" : "star")
+                        }.frame(maxWidth: .infinity)
+                    }.controlSize(.large).disabled(busy)
+                    if let error { Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
                     Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(repo.url.absoluteString, forType: .string); copied = true } label: { Label(copied ? "链接已复制" : "复制链接", systemImage: "link") }.buttonStyle(.plain).foregroundStyle(.secondary).font(.caption)
                 }
-                Text("收藏仅保存在本机，不会更改你的 GitHub Star。").font(.caption2).foregroundStyle(.tertiary)
+                Text("Star 与取消 Star 将直接更新你的 GitHub 账号。").font(.caption2).foregroundStyle(.tertiary)
                 Spacer()
             }.padding(28).frame(maxWidth: .infinity, alignment: .leading)
         }.frame(minWidth: 290).onChange(of: repo.id) { _, _ in copied = false }

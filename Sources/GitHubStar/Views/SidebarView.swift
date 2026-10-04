@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarView: View {
     @ObservedObject var store: RepositoryStore
+    @ObservedObject var account: GitHubAccountStore
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
@@ -18,12 +19,15 @@ struct SidebarView: View {
                     }
                 }
                 Section("资料库") {
-                    Label("我的收藏", systemImage: "bookmark").badge(store.favorites.count).tag(Feed.saved)
+                    Label("我的 Stars", systemImage: "star.fill").tag(Feed.saved)
                 }
             }.listStyle(.sidebar)
             VStack(alignment: .leading, spacing: 8) {
                 Label("为好项目留一颗星", systemImage: "sparkles").font(.caption)
-                Text("探索 · 收藏 · 构建").font(.caption2).foregroundStyle(.secondary)
+                Text("探索 · Star · 构建").font(.caption2).foregroundStyle(.secondary)
+                Button { account.showsLogin = true } label: {
+                    Label(account.user.map { "@" + $0.login } ?? "登录 GitHub", systemImage: "person.crop.circle")
+                }.buttonStyle(.plain).font(.callout)
                 SettingsLink { Label("设置与数据说明", systemImage: "gearshape") }.buttonStyle(.plain).font(.caption).padding(.top, 8)
             }.padding(18).foregroundStyle(.secondary)
         }.navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 250)

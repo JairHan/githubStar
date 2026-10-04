@@ -2,11 +2,12 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var store: RepositoryStore
+    @ObservedObject var account: GitHubAccountStore
     @FocusState private var searchFocused: Bool
     private let languages = ["", "Swift", "Python", "TypeScript", "JavaScript", "Rust", "Go", "Java", "C", "C++", "Ruby", "Kotlin"]
     var body: some View {
         NavigationSplitView {
-            SidebarView(store: store)
+            SidebarView(store: store, account: account)
         } content: {
             VStack(spacing: 0) {
                 header
@@ -26,7 +27,7 @@ struct ContentView: View {
                                 .tag(repo.id)
                                 .contextMenu {
                                     Button("在 GitHub 打开") { NSWorkspace.shared.open(repo.url) }
-                                    Button(store.isSaved(repo) ? "取消收藏" : "收藏") { store.toggleSave(repo) }
+                                    Button(store.isSaved(repo) ? "取消 Star" : "Star") { store.requestStar(repo) }
                                     Button("复制仓库链接") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(repo.url.absoluteString, forType: .string) }
                                 }
                         }
@@ -36,7 +37,8 @@ struct ContentView: View {
             }.navigationSplitViewColumnWidth(min: 400, ideal: 570, max: 800)
         } detail: {
             if let repo = store.selected {
-                RepositoryDetailView(repo: repo, saved: store.isSaved(repo), onSave: { store.toggleSave(repo) })
+                RepositoryDetailView(repo: repo, saved: store.isSaved(repo), signedIn: account.isSignedIn, busy: store.starIsBusy(repo), error: store.starError, onSave: { store.requestStar(repo) })
+                    .task(id: repo.id + account.sessionID.uuidString) { await store.checkStar(repo) }
             } else {
                 ContentUnavailableView("选择一个仓库", systemImage: "square.stack.3d.up", description: Text("浏览项目详情，发现下一个灵感。"))
             }
@@ -47,6 +49,8 @@ struct ContentView: View {
             ToolbarItem { Button { store.feed = .search; searchFocused = true } label: { Label("搜索", systemImage: "magnifyingglass") }.keyboardShortcut("f", modifiers: .command) }
         }
         .task(id: store.key) { await store.load() }
+        .task { await account.restore() }
+        .sheet(isPresented: $account.showsLogin, onDismiss: { account.cancelLogin() }) { AccountView(account: account).padding(24).frame(width: 520) }
     }
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -65,7 +69,7 @@ struct ContentView: View {
                         .textFieldStyle(.plain).focused($searchFocused)
                         .onSubmit { store.submitSearch() }
                     if !store.query.isEmpty {
-                        Button { store.query = ""; if store.feed == .saved { store.refreshID = UUID() } } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }.buttonStyle(.plain)
+                        Button { store.query = ""; if store.feed == .saved { store.filterStars() } } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }.buttonStyle(.plain)
                     }
                 }.padding(10).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
                 Button("搜索") { store.submitSearch() }.buttonStyle(.borderedProminent)
@@ -77,17 +81,23 @@ struct ContentView: View {
                 Spacer()
                 if store.feed == .weekly { Label("周涨星 ↓", systemImage: "arrow.up.right").foregroundStyle(.green) }
                 else if store.feed == .allTime || store.feed == .search { Label("总星数 ↓", systemImage: "star").foregroundStyle(.secondary) }
-                else { Text(store.feed == .saved ? "本地收藏" : "Trending 排名").foregroundStyle(.secondary) }
+                else { Text(store.feed == .saved ? "GitHub Stars" : "Trending 排名").foregroundStyle(.secondary) }
             }.font(.caption)
         }.padding(22)
-        .onChange(of: store.query) { _, _ in if store.feed == .saved { store.refreshID = UUID() } }
+        .onChange(of: store.query) { _, _ in if store.feed == .saved { store.filterStars() } }
     }
     @ViewBuilder private var emptyState: some View {
         if store.isLoading { ProgressView("正在连接 GitHub…").frame(maxWidth: .infinity) }
+        else if store.feed == .saved && !account.isSignedIn {
+            VStack(spacing: 16) {
+                ContentUnavailableView("登录后查看你的 Stars", systemImage: "person.crop.circle", description: Text("与 GitHub 账号同步，点击 Star 就能保存到 GitHub。"))
+                Button("登录 GitHub") { account.showsLogin = true }.buttonStyle(.borderedProminent)
+            }
+        }
         else if store.feed == .search && store.submittedQuery.isEmpty {
             ContentUnavailableView("发现你感兴趣的项目", systemImage: "magnifyingglass", description: Text("输入关键词后按回车。支持 language:Swift、topic:ai 等查询。"))
         } else {
-            ContentUnavailableView(store.error == nil ? "暂无仓库" : "暂时无法获取仓库", systemImage: store.feed == .saved ? "bookmark" : "network", description: Text(store.feed == .saved ? "在仓库详情中点击收藏，就能在这里再次找到它。" : "试试其他关键词、语言，或点击刷新。"))
+            ContentUnavailableView(store.error == nil ? "暂无仓库" : "暂时无法获取仓库", systemImage: store.feed == .saved ? "star" : "network", description: Text(store.feed == .saved ? "暂无匹配的已 Star 项目；可以加载更多，或在仓库详情中点击 Star。" : "试试其他关键词、语言，或点击刷新。"))
         }
     }
     private var footer: some View {

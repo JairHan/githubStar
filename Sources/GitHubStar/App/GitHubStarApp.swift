@@ -3,10 +3,16 @@ import SwiftUI
 @main
 struct GitHubStarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @StateObject private var store = RepositoryStore()
+    @StateObject private var account: GitHubAccountStore
+    @StateObject private var store: RepositoryStore
+    init() {
+        let account = GitHubAccountStore()
+        _account = StateObject(wrappedValue: account)
+        _store = StateObject(wrappedValue: RepositoryStore(account: account))
+    }
     var body: some Scene {
         WindowGroup("GitHub Star") {
-            ContentView(store: store)
+            ContentView(store: store, account: account)
                 .frame(minWidth: 1000, minHeight: 640)
                 .tint(.indigo)
         }
@@ -15,10 +21,10 @@ struct GitHubStarApp: App {
             CommandGroup(after: .newItem) {
                 Button("刷新仓库") { store.refreshID = UUID() }.keyboardShortcut("r", modifiers: .command)
                 Button("在 GitHub 打开") { if let repo = store.selected { NSWorkspace.shared.open(repo.url) } }.keyboardShortcut("o", modifiers: .command)
-                Button("收藏 / 取消收藏") { if let repo = store.selected { store.toggleSave(repo) } }.keyboardShortcut("d", modifiers: .command)
+                Button("Star / 取消 Star") { if let repo = store.selected { store.requestStar(repo) } }.keyboardShortcut("d", modifiers: .command)
             }
         }
-        Settings { SettingsView().frame(width: 440) }
+        Settings { SettingsView(account: account).frame(width: 520) }
     }
 }
 final class AppDelegate: NSObject, NSApplicationDelegate {
