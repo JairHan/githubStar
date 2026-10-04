@@ -77,7 +77,7 @@ GITHUBSTAR_OAUTH_CLIENT_ID=你的公开ClientID ./script/build_and_run.sh --rele
 
 ## 软件图标
 
-图标采用靛紫色 macOS 圆角底板、金色 Star 和青色代码连线。源图为带透明通道的 `Assets/AppIcon.png`，macOS 图标为 `Assets/AppIcon.icns`。打包脚本会自动将图标加入应用包。
+图标采用白色 macOS 圆角底板、深色 Star 轮廓和代码连线，以统一线条与留白形成极简风格。源图为带透明通道的 `Assets/AppIcon.png`，macOS 图标为 `Assets/AppIcon.icns`。打包脚本会自动将图标加入应用包。
 
 修改源图后运行 `./script/generate_icon.sh` 重新生成 ICNS，再构建应用。生成提示词记录在 `Assets/AppIcon-prompt.md`。
 
