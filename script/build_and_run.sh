@@ -31,7 +31,15 @@ fi
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
 DMG_PATH="$ROOT_DIR/dist/$APP_NAME.dmg"
 STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/githubstar-app.XXXXXX")"
-trap 'rm -rf "$STAGING_DIR"' EXIT
+DMG_MOUNT=""
+cleanup() {
+  if [[ -n "$DMG_MOUNT" ]]; then
+    # Keep staging intact if the image cannot be detached safely.
+    /usr/bin/hdiutil detach "$DMG_MOUNT" >/dev/null || return
+  fi
+  rm -rf "$STAGING_DIR"
+}
+trap cleanup EXIT
 STAGED_BUNDLE="$STAGING_DIR/$APP_NAME.app"
 swift build -c "$BUILD_CONFIGURATION"
 BUILD_BINARY="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)/$APP_NAME"
@@ -66,11 +74,23 @@ codesign --verify --strict "$STAGED_BUNDLE"
 # Package the validated staging bundle, before Desktop's file provider can add metadata.
 DMG_CONTENTS="$STAGING_DIR/dmg-contents"
 STAGED_DMG="$STAGING_DIR/$APP_NAME.dmg"
-mkdir -p "$DMG_CONTENTS"
+WRITABLE_DMG="$STAGING_DIR/installer-writable.dmg"
+mkdir -p "$DMG_CONTENTS/.background"
 /usr/bin/ditto --norsrc --noextattr "$STAGED_BUNDLE" "$DMG_CONTENTS/$APP_NAME.app"
 ln -s /Applications "$DMG_CONTENTS/Applications"
+swift "$ROOT_DIR/script/generate_dmg_background.swift" "$STAGING_DIR/design"
+/usr/bin/tiffutil -cathidpicheck "$STAGING_DIR/design/DMGBackground-preview.png" \
+  "$STAGING_DIR/design/DMGBackground@2x.png" -out "$STAGING_DIR/design/DMGBackground.tiff"
+cp "$STAGING_DIR/design/DMGBackground.tiff" "$DMG_CONTENTS/.background/DMGBackground.tiff"
 /usr/bin/hdiutil create -volname "GitHub Star" -srcfolder "$DMG_CONTENTS" \
-  -format UDZO -fs HFS+ "$STAGED_DMG"
+  -format UDRW -fs HFS+ "$WRITABLE_DMG"
+mkdir -p "$STAGING_DIR/mount"
+/usr/bin/hdiutil attach -nobrowse -mountpoint "$STAGING_DIR/mount" "$WRITABLE_DMG"
+DMG_MOUNT="$STAGING_DIR/mount"
+PYTHONDONTWRITEBYTECODE=1 python3 "$ROOT_DIR/script/configure_dmg.py" "$DMG_MOUNT" "$APP_NAME"
+/usr/bin/hdiutil detach "$DMG_MOUNT"
+DMG_MOUNT=""
+/usr/bin/hdiutil convert "$WRITABLE_DMG" -format UDZO -o "$STAGED_DMG"
 /usr/bin/hdiutil verify "$STAGED_DMG"
 
 mkdir -p "$ROOT_DIR/dist"

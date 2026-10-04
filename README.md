@@ -24,6 +24,8 @@
 
 使用 Xcode 时打开 `Package.swift`。构建只需要 Apple Command Line Tools 中的 Swift 工具链。
 
+DMG 使用 660 × 480 的安装窗口：应用在左、Applications 在右，配有淡紫色背景、拖拽箭头和中文安装提示，并为 Finder 的路径栏和状态栏预留空间。背景通过 AppKit 生成双分辨率 TIFF；`script/configure_dmg.py` 直接写入 Finder 布局，不需要 Finder 自动化权限。打包使用 Command Line Tools 提供的 Python 3，布局依赖已随项目保存在 `script/vendor/`，构建时无需下载 Python 包。修改安装页设计可编辑 `script/generate_dmg_background.swift`，下次构建会自动生成。
+
 ```bash
 ./script/test.sh
 ./script/build_and_run.sh --build-only
