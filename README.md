@@ -4,6 +4,7 @@
 
 ## 功能
 
+- GitHub 动态：应用内浏览 GitHub 官方 Feed，支持前进、后退、返回动态首页和浏览器打开。
 - 今日热门：GitHub Trending 日榜，显示今日新增 Star。
 - 每周涨星：GitHub Trending 周榜，按本周新增 Star 排序。
 - 总星榜：GitHub 搜索 API，按累计 Star 降序。
@@ -36,6 +37,12 @@ GITHUBSTAR_LIVE_TEST=1 ./script/test.sh
 ```
 
 快捷键：⌘F 搜索、⌘R 刷新、⌘O 打开仓库、⌘D Star / 取消 Star。
+
+## GitHub 动态
+
+侧栏选择“GitHub 动态”即可浏览 [GitHub Feed](https://github.com/feed)。通过系统 WebKit 展示官方页面；首次需要在页面内登录 GitHub，网页会话持久保存在本机。切换侧栏会保留页面与滚动位置，⌘R 刷新当前页面。GitHub 站内链接在应用内打开，外部链接交给默认浏览器。
+
+动态网页登录与 Star 的 OAuth 授权独立，应用不会向网页注入授权令牌。退出应用的 Star 账号不会退出网页登录；要更换动态账号，请在网页的 GitHub 账号菜单中退出。若某种登录方式无法在内嵌页面完成，可用“在浏览器打开”继续（外部浏览器的登录会话不会同步到应用内）。
 
 ## 数据口径与限制
 

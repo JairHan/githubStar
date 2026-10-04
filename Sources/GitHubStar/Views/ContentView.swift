@@ -3,9 +3,32 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var store: RepositoryStore
     @ObservedObject var account: GitHubAccountStore
+    @StateObject private var feedBrowser = FeedBrowserStore()
     @FocusState private var searchFocused: Bool
     private let languages = ["", "Swift", "Python", "TypeScript", "JavaScript", "Rust", "Go", "Java", "C", "C++", "Ruby", "Kotlin"]
     var body: some View {
+        Group {
+            if store.feed == .activity {
+                NavigationSplitView {
+                    SidebarView(store: store, account: account)
+                } detail: {
+                    GitHubFeedView(browser: feedBrowser)
+                        .onChange(of: store.refreshID) { _, _ in feedBrowser.reload() }
+                }
+            } else {
+                repositoryLayout
+            }
+        }
+        .navigationTitle(store.feed.title)
+        .toolbar {
+            ToolbarItem { Button { store.refreshID = UUID() } label: { Label("刷新", systemImage: "arrow.clockwise") }.help("刷新 ⌘R") }
+            ToolbarItem { Button { store.feed = .search; searchFocused = true } label: { Label("搜索", systemImage: "magnifyingglass") }.keyboardShortcut("f", modifiers: .command) }
+        }
+        .task(id: store.key) { await store.load() }
+        .task { await account.restore() }
+        .sheet(isPresented: $account.showsLogin, onDismiss: { account.cancelLogin() }) { AccountView(account: account).padding(24).frame(width: 520) }
+    }
+    private var repositoryLayout: some View {
         NavigationSplitView {
             SidebarView(store: store, account: account)
         } content: {
@@ -43,14 +66,6 @@ struct ContentView: View {
                 ContentUnavailableView("选择一个仓库", systemImage: "square.stack.3d.up", description: Text("浏览项目详情，发现下一个灵感。"))
             }
         }
-        .navigationTitle(store.feed.title)
-        .toolbar {
-            ToolbarItem { Button { store.refreshID = UUID() } label: { Label("刷新", systemImage: "arrow.clockwise") }.help("刷新 ⌘R") }
-            ToolbarItem { Button { store.feed = .search; searchFocused = true } label: { Label("搜索", systemImage: "magnifyingglass") }.keyboardShortcut("f", modifiers: .command) }
-        }
-        .task(id: store.key) { await store.load() }
-        .task { await account.restore() }
-        .sheet(isPresented: $account.showsLogin, onDismiss: { account.cancelLogin() }) { AccountView(account: account).padding(24).frame(width: 520) }
     }
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {

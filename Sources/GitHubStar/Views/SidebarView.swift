@@ -14,7 +14,7 @@ struct SidebarView: View {
             }.padding(.horizontal, 16).padding(.vertical, 24)
             List(selection: $store.feed) {
                 Section("发现") {
-                    ForEach([Feed.daily, .weekly, .allTime, .search]) { feed in
+                    ForEach([Feed.activity, .daily, .weekly, .allTime, .search]) { feed in
                         Label(feed.title, systemImage: feed.icon).tag(feed)
                     }
                 }

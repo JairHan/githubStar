@@ -140,6 +140,7 @@ final class RepositoryStore: ObservableObject {
         else { generation = UUID(); requestGeneration = generation }
         let requestFeed = feed, requestLanguage = language, requestQuery = submittedQuery, requestCacheKey = cacheKey
         error = nil
+        if requestFeed == .activity { items = []; selectedID = nil; isLoading = false; return }
         if requestFeed == .saved { await loadStars(more: more, generation: requestGeneration); return }
         if requestFeed == .search && requestQuery.isEmpty { items = []; total = 0; selectedID = nil; isLoading = false; updatedAt = nil; return }
         if !more {
