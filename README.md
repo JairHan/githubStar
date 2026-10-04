@@ -75,6 +75,12 @@ GITHUBSTAR_OAUTH_CLIENT_ID=你的公开ClientID ./script/build_and_run.sh --rele
 
 构建脚本使用本机临时签名，产物适合本机运行，尚未使用 Developer ID 签名和 Apple 公证，不是正式分发包。
 
+## 软件图标
+
+图标采用靛紫色 macOS 圆角底板、金色 Star 和青色代码连线。源图为带透明通道的 `Assets/AppIcon.png`，macOS 图标为 `Assets/AppIcon.icns`。打包脚本会自动将图标加入应用包。
+
+修改源图后运行 `./script/generate_icon.sh` 重新生成 ICNS，再构建应用。生成提示词记录在 `Assets/AppIcon-prompt.md`。
+
 ## 工程结构
 
 `App/` 应用入口与菜单，`Models/` 仓库模型，`Services/` API 和 Trending 解析，`Stores/` 状态及持久化，`Views/` 原生界面，`Tests/` 数据解析验证。

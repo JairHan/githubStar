@@ -30,6 +30,11 @@ swift build -c "$BUILD_CONFIGURATION"
 BUILD_BINARY="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)/$APP_NAME"
 mkdir -p "$STAGED_BUNDLE/Contents/MacOS"
 cp "$BUILD_BINARY" "$STAGED_BUNDLE/Contents/MacOS/$APP_NAME"
+if [[ ! -f "$ROOT_DIR/Assets/AppIcon.icns" ]]; then
+  "$ROOT_DIR/script/generate_icon.sh"
+fi
+mkdir -p "$STAGED_BUNDLE/Contents/Resources"
+cp "$ROOT_DIR/Assets/AppIcon.icns" "$STAGED_BUNDLE/Contents/Resources/AppIcon.icns"
 cat > "$STAGED_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -37,6 +42,7 @@ cat > "$STAGED_BUNDLE/Contents/Info.plist" <<PLIST
 <key>CFBundleExecutable</key><string>$APP_NAME</string>
 <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
 <key>CFBundleName</key><string>GitHub Star</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>CFBundleShortVersionString</key><string>1.0</string>
