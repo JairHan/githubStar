@@ -20,14 +20,14 @@
 ./script/build_and_run.sh
 ```
 
-每次构建同时生成 `dist/GitHubStar.app` 和压缩安装镜像 `dist/GitHubStar.dmg`。默认构建后打开应用；Codex 的 Run 按钮已配置。打开 DMG 后，将 GitHubStar 拖入镜像中的 Applications 快捷入口即可安装。
+每次构建同时生成 Release 版本的 `dist/GitHubStar.app` 和压缩安装镜像 `dist/GitHubStar.dmg`。脚本只构建，不启动应用、调试器或停止已运行的应用；Codex 的 Run 按钮同样只执行构建。需要使用时双击 `.app`，或打开 DMG 后将 GitHubStar 拖入 Applications 快捷入口安装。
 
 使用 Xcode 时打开 `Package.swift`。构建只需要 Apple Command Line Tools 中的 Swift 工具链。
 
 ```bash
 ./script/test.sh
-./script/build_and_run.sh --verify
 ./script/build_and_run.sh --build-only
+./script/build_and_run.sh --release
 ```
 
 测试脚本直接编译生产数据层并运行断言，不需要 XCTest 或 Swift Testing 宏插件。运行在线检查：
