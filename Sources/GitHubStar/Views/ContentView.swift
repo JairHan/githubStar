@@ -9,7 +9,8 @@ struct ContentView: View {
     private var isRefreshing: Bool { store.feed == .activity ? activity.isLoading : store.isLoading }
     var body: some View {
         repositoryLayout
-        .background(WindowSeparator())
+        // Keep the native dividers; suppress the inset titlebar background that creates a stepped edge.
+        .toolbarBackground(.hidden, for: .windowToolbar)
         .task(id: store.key) {
             if store.feed == .activity { await activity.load() }
             else { await store.load() }
