@@ -28,7 +28,9 @@ struct GitHubStarApp: App {
         .defaultSize(width: 1280, height: 820)
         .commands {
             CommandGroup(after: .newItem) {
-                Button("刷新当前页面") { store.refreshID = UUID() }.keyboardShortcut("r", modifiers: .command)
+                Button("刷新当前页面") { store.refreshID = UUID() }
+                    .keyboardShortcut("r", modifiers: .command)
+                    .disabled(store.feed == .activity ? activity.isLoading : store.isLoading)
                 Button("在 GitHub 打开") { if let repo = commandRepository { NSWorkspace.shared.open(repo.url) } }.keyboardShortcut("o", modifiers: .command).disabled(commandRepository == nil)
                 Button("Star / 取消 Star") { if let repo = commandRepository { store.requestStar(repo) } }.keyboardShortcut("d", modifiers: .command).disabled(commandRepository == nil)
             }

@@ -6,11 +6,19 @@ struct ContentView: View {
     @ObservedObject var activity: ActivityStore
     @FocusState private var searchFocused: Bool
     private let languages = ["", "Swift", "Python", "TypeScript", "JavaScript", "Rust", "Go", "Java", "C", "C++", "Ruby", "Kotlin"]
+    private var isRefreshing: Bool { store.feed == .activity ? activity.isLoading : store.isLoading }
     var body: some View {
         repositoryLayout
         .navigationTitle(store.feed.title)
         .toolbar {
-            ToolbarItem { Button { store.refreshID = UUID() } label: { Label("刷新", systemImage: "arrow.clockwise") }.help("刷新 ⌘R") }
+            ToolbarItem(placement: .primaryAction) {
+                Button { store.refreshID = UUID() } label: {
+                    Label(isRefreshing ? "刷新中…" : "刷新", systemImage: "arrow.clockwise")
+                }
+                .labelStyle(.titleAndIcon)
+                .disabled(isRefreshing)
+                .help("刷新当前页面（⌘R）")
+            }
             ToolbarItem { Button { store.feed = .search; searchFocused = true } label: { Label("搜索", systemImage: "magnifyingglass") }.keyboardShortcut("f", modifiers: .command) }
         }
         .task(id: store.key) {
