@@ -19,6 +19,12 @@ struct ContentView: View {
         .sheet(isPresented: $account.showsLogin, onDismiss: { account.cancelLogin() }) { AccountView(account: account).padding(24).frame(width: 520) }
     }
     @ToolbarContentBuilder private var pageToolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            Text(store.feed.title)
+                .font(.headline)
+                .padding(.leading, 12)
+                .fixedSize()
+        }
         ToolbarItem(placement: .primaryAction) {
             Button { store.refreshID = UUID() } label: {
                 Label(isRefreshing ? "刷新中…" : "刷新", systemImage: "arrow.clockwise")
@@ -66,7 +72,7 @@ struct ContentView: View {
                     }.navigationSplitViewColumnWidth(min: 400, ideal: 570, max: 800)
                 }
             }
-            .navigationTitle(store.feed.title)
+            .navigationTitle("")
             .toolbar { pageToolbar }
             .overlay(alignment: .top) { Divider() }
         } detail: {
