@@ -26,6 +26,7 @@ struct GitHubStarApp: App {
                 .tint(.indigo)
         }
         .defaultSize(width: 1280, height: 820)
+        .windowToolbarStyle(.unifiedCompact)
         .commands {
             CommandGroup(after: .newItem) {
                 Button("刷新当前页面") { store.refreshID = UUID() }

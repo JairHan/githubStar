@@ -9,18 +9,6 @@ struct ContentView: View {
     private var isRefreshing: Bool { store.feed == .activity ? activity.isLoading : store.isLoading }
     var body: some View {
         repositoryLayout
-        .navigationTitle(store.feed.title)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { store.refreshID = UUID() } label: {
-                    Label(isRefreshing ? "刷新中…" : "刷新", systemImage: "arrow.clockwise")
-                }
-                .labelStyle(.titleAndIcon)
-                .disabled(isRefreshing)
-                .help("刷新当前页面（⌘R）")
-            }
-            ToolbarItem { Button { store.feed = .search; searchFocused = true } label: { Label("搜索", systemImage: "magnifyingglass") }.keyboardShortcut("f", modifiers: .command) }
-        }
         .task(id: store.key) {
             if store.feed == .activity { await activity.load() }
             else { await store.load() }
@@ -28,41 +16,56 @@ struct ContentView: View {
         .task { await account.restore() }
         .sheet(isPresented: $account.showsLogin, onDismiss: { account.cancelLogin() }) { AccountView(account: account).padding(24).frame(width: 520) }
     }
+    @ToolbarContentBuilder private var pageToolbar: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Button { store.refreshID = UUID() } label: {
+                Label(isRefreshing ? "刷新中…" : "刷新", systemImage: "arrow.clockwise")
+            }
+            .labelStyle(.titleAndIcon)
+            .disabled(isRefreshing)
+            .help("刷新当前页面（⌘R）")
+        }
+        ToolbarItem { Button { store.feed = .search; searchFocused = true } label: { Label("搜索", systemImage: "magnifyingglass") }.keyboardShortcut("f", modifiers: .command) }
+    }
     private var repositoryLayout: some View {
         NavigationSplitView {
             SidebarView(store: store, account: account)
         } content: {
-            if store.feed == .activity {
-                ActivityListView(activity: activity, account: account)
-                    .navigationSplitViewColumnWidth(min: 400, ideal: 570, max: 800)
-            } else {
-            VStack(spacing: 0) {
-                header
-                if let error = store.error {
-                    HStack(alignment: .top) {
-                        Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
-                        Text(error).font(.caption).textSelection(.enabled)
-                        Spacer()
-                        Button("重试") { store.refreshID = UUID() }
-                    }.padding(12).background(.orange.opacity(0.08))
-                }
-                if store.items.isEmpty { emptyState.frame(maxHeight: .infinity) }
-                else {
-                    List(selection: $store.selectedID) {
-                        ForEach(Array(store.items.enumerated()), id: \.element.id) { index, repo in
-                            RepositoryRow(repo: repo, rank: index + 1, saved: store.isSaved(repo))
-                                .tag(repo.id)
-                                .contextMenu {
-                                    Button("在 GitHub 打开") { NSWorkspace.shared.open(repo.url) }
-                                    Button(store.isSaved(repo) ? "取消 Star" : "Star") { store.requestStar(repo) }
-                                    Button("复制仓库链接") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(repo.url.absoluteString, forType: .string) }
-                                }
+            Group {
+                if store.feed == .activity {
+                    ActivityListView(activity: activity, account: account)
+                        .navigationSplitViewColumnWidth(min: 400, ideal: 570, max: 800)
+                } else {
+                    VStack(spacing: 0) {
+                        header
+                        if let error = store.error {
+                            HStack(alignment: .top) {
+                                Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
+                                Text(error).font(.caption).textSelection(.enabled)
+                                Spacer()
+                                Button("重试") { store.refreshID = UUID() }
+                            }.padding(12).background(.orange.opacity(0.08))
                         }
-                    }.listStyle(.inset).overlay(alignment: .topTrailing) { if store.isLoading { ProgressView().controlSize(.small).padding(12) } }
+                        if store.items.isEmpty { emptyState.frame(maxHeight: .infinity) }
+                        else {
+                            List(selection: $store.selectedID) {
+                                ForEach(Array(store.items.enumerated()), id: \.element.id) { index, repo in
+                                    RepositoryRow(repo: repo, rank: index + 1, saved: store.isSaved(repo))
+                                        .tag(repo.id)
+                                        .contextMenu {
+                                            Button("在 GitHub 打开") { NSWorkspace.shared.open(repo.url) }
+                                            Button(store.isSaved(repo) ? "取消 Star" : "Star") { store.requestStar(repo) }
+                                            Button("复制仓库链接") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(repo.url.absoluteString, forType: .string) }
+                                        }
+                                }
+                            }.listStyle(.inset).overlay(alignment: .topTrailing) { if store.isLoading { ProgressView().controlSize(.small).padding(12) } }
+                        }
+                        footer
+                    }.navigationSplitViewColumnWidth(min: 400, ideal: 570, max: 800)
                 }
-                footer
-            }.navigationSplitViewColumnWidth(min: 400, ideal: 570, max: 800)
             }
+            .navigationTitle(store.feed.title)
+            .toolbar { pageToolbar }
         } detail: {
             if store.feed == .activity {
                 ActivityDetailView(activity: activity, store: store, account: account)
