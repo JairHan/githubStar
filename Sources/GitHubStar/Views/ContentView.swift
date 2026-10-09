@@ -9,6 +9,7 @@ struct ContentView: View {
     private var isRefreshing: Bool { store.feed == .activity ? activity.isLoading : store.isLoading }
     var body: some View {
         repositoryLayout
+        .background(WindowSeparator())
         .task(id: store.key) {
             if store.feed == .activity { await activity.load() }
             else { await store.load() }
@@ -66,15 +67,19 @@ struct ContentView: View {
             }
             .navigationTitle(store.feed.title)
             .toolbar { pageToolbar }
+            .overlay(alignment: .top) { Divider() }
         } detail: {
-            if store.feed == .activity {
-                ActivityDetailView(activity: activity, store: store, account: account)
-            } else if let repo = store.selected {
-                RepositoryDetailView(repo: repo, saved: store.isSaved(repo), signedIn: account.isSignedIn, busy: store.starIsBusy(repo), error: store.starError, onSave: { store.requestStar(repo) })
-                    .task(id: repo.id + account.sessionID.uuidString) { await store.checkStar(repo) }
-            } else {
-                ContentUnavailableView("选择一个仓库", systemImage: "square.stack.3d.up", description: Text("浏览项目详情，发现下一个灵感。"))
+            Group {
+                if store.feed == .activity {
+                    ActivityDetailView(activity: activity, store: store, account: account)
+                } else if let repo = store.selected {
+                    RepositoryDetailView(repo: repo, saved: store.isSaved(repo), signedIn: account.isSignedIn, busy: store.starIsBusy(repo), error: store.starError, onSave: { store.requestStar(repo) })
+                        .task(id: repo.id + account.sessionID.uuidString) { await store.checkStar(repo) }
+                } else {
+                    ContentUnavailableView("选择一个仓库", systemImage: "square.stack.3d.up", description: Text("浏览项目详情，发现下一个灵感。"))
+                }
             }
+            .overlay(alignment: .top) { Divider() }
         }
     }
     private var header: some View {
