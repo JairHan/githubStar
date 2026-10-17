@@ -202,8 +202,8 @@ final class HeldRequestProtocol: URLProtocol {
         }
         throw GitHubError.message("Timed out waiting for test request")
     }
-    func reply(status: Int, data: Data) {
-        let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+    func reply(status: Int, data: Data, headers: [String: String] = [:]) {
+        let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: data)
         client?.urlProtocolDidFinishLoading(self)

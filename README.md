@@ -10,7 +10,7 @@
 - 总星榜：GitHub 搜索 API，按累计 Star 降序。
 - 关键词搜索：支持 `swift`、`topic:ai`、`stars:>1000` 等 GitHub 查询语法。
 - 语言筛选、分页、仓库详情、打开 GitHub、复制链接。
-- 仓库详情内的 README 原生文本预览，支持标题、列表文本、代码块和链接。
+- 仓库详情内的 README 富文本预览，支持标题、图片、嵌套列表、表格、代码块和折叠内容。
 - GitHub 设备授权登录、Star / 取消 Star、分页读取我的 Stars。
 - 公开榜单离线缓存；登录令牌保存至 macOS 钥匙串。
 - 原生侧栏、菜单、设置窗口，自动适应系统浅色及深色外观。
@@ -59,7 +59,17 @@ GITHUBSTAR_LIVE_TEST=1 ./script/test.sh
 
 公开 Trending 榜单在登录前后均可读写离线缓存；登录后的搜索和总星榜响应不写入缓存，但可回退到已有匿名缓存。缓存保存最多 80 组查询，读取时检查 7 天有效期，文件读写在独立 actor 中执行。刷新期间保留当前数据与选择；失败时标注“上次数据”及原更新时间。
 
-README 使用 [GitHub 仓库内容 API](https://docs.github.com/en/rest/repos/contents#get-a-repository-readme)读取，以原生 SwiftUI 文本展示，不运行 HTML 或脚本。图片、表格和完整 GitHub 排版请通过“在 GitHub 查看完整 README”打开。文本预览最多显示 60,000 字符，README 仅在内存缓存 5 分钟、最多 20 项，退出或切换账号时清空。
+README 使用 [GitHub 仓库内容 API](https://docs.github.com/en/rest/repos/contents#get-a-repository-readme)的 HTML 媒体类型，直接读取 GitHub 渲染的内容，再由系统 WebKit 展示，兼容 Markdown、HTML 和 GitHub 可渲染的其他 README 格式。图片、嵌套列表、表格和折叠内容可直接显示；相对图片和文档链接按 README 所在目录解析。图片加载、窗口宽度变化和折叠区块展开时会更新页面高度，适配系统深浅色外观。鼠标停在 README 内时，纵向滚轮会滚动外层详情页；横向滚动保留给代码块和表格。外部链接交给默认浏览器打开，仓库内锚点在预览中定位。
+
+WebKit 使用临时数据存储，不传入 OAuth 令牌，并禁用 README 自带脚本；只有应用自己的隔离脚本用于布局和相对路径处理。移除了 60,000 字符截断，避免截断 HTML 标签；渲染响应超过 8 MiB 时提示通过 GitHub 查看。README 仅在内存缓存 5 分钟、最多 20 项，退出或切换账号时清空。远程图片仍需对应图床可访问，依赖 GitHub 网页脚本的交互可通过“在 GitHub 查看完整 README”打开。
+
+运行真实 WebKit 渲染测试（会短暂创建独立测试窗口，不读取账号凭据）：
+
+```bash
+./script/test_readme_rendering.sh
+```
+
+该测试检查表格、图片像素、折叠区块高度、相对路径、外部链接、脚本隔离，以及嵌入 SwiftUI 详情页后的纵向滚动、边界和横向事件传递；报告和截图位于 `.build/readme-rendering/`。也可将通过 HTML 媒体类型取得的真实 README 文件路径作为额外参数传入。
 
 登录令牌保存在 macOS 钥匙串，不写入项目、JSON、UserDefaults 或日志。账号数据只保存在内存中，切换账号或退出后清空；授权后的搜索结果不写入离线缓存。旧版 `favorites.json` 会保留，但不再作为 Stars 列表，也不会自动批量 Star。
 

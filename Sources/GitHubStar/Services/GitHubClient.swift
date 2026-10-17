@@ -12,13 +12,13 @@ struct GitHubClient {
     func fetch(_ url: URL, api: Bool = false) async throws -> Data {
         try await fetchResponse(url, api: api).0
     }
-    private func fetchResponse(_ url: URL, api: Bool = false) async throws -> (Data, HTTPURLResponse) {
+    private func fetchResponse(_ url: URL, api: Bool = false, accept: String = "application/vnd.github+json") async throws -> (Data, HTTPURLResponse) {
         var request = URLRequest(url: url)
         request.timeoutInterval = 25
         request.setValue("GitHubStar-macOS", forHTTPHeaderField: "User-Agent")
         if api {
             if let token { request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
-            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            request.setValue(accept, forHTTPHeaderField: "Accept")
             request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
         }
         let (data, response) = try await session.data(for: request)
@@ -85,18 +85,19 @@ struct GitHubClient {
     }
     func readme(fullName: String) async throws -> ReadmeDocument {
         let url = try repositoryURL(fullName: fullName).appendingPathComponent("readme")
-        let data = try await fetch(url, api: true)
-        let result = try JSONDecoder().decode(ReadmeResponse.self, from: data)
-        guard result.encoding == "base64", result.size <= 1_000_000,
-              let content = Data(base64Encoded: result.content, options: .ignoreUnknownCharacters),
-              let markdown = String(data: content, encoding: .utf8) else {
-            throw GitHubError.message("README 过大或不是 UTF-8 文本，请在 GitHub 查看。")
+        let (data, response) = try await fetchResponse(url, api: true, accept: "application/vnd.github.html+json")
+        let type = response.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
+        guard type.contains("html"), let html = String(data: data, encoding: .utf8) else {
+            throw GitHubError.message("GitHub 未返回可渲染的 README，请重试或在 GitHub 查看。")
         }
-        guard let source = URL(string: result.html_url), source.scheme == "https", source.host == "github.com" else {
-            throw GitHubError.message("README 地址无效。")
+        guard data.count <= 8 * 1024 * 1024 else {
+            throw GitHubError.message("README 内容过大，请在 GitHub 查看完整页面。")
         }
-        let limit = 60_000
-        return ReadmeDocument(markdown: String(markdown.prefix(limit)), sourceURL: source, isTruncated: markdown.count > limit)
+        guard !html.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw GitHubError.message("README 内容为空。")
+        }
+        let repository = URL(string: "https://github.com")!.appendingPathComponent(fullName)
+        return ReadmeDocument(html: html, repositoryURL: repository, path: ReadmeDocument.readmePath(in: html))
     }
     func starred(page: Int) async throws -> StarredPage {
         guard token != nil else { throw GitHubError.unauthorized }
@@ -130,12 +131,6 @@ struct GitHubClient {
         if http.statusCode == 403 { throw GitHubError.message("无法更新 Star：权限不足或 GitHub 限流，请检查授权后重试。") }
         throw GitHubError.message("Star 请求失败（HTTP \(http.statusCode)），请稍后重试。")
     }
-}
-private struct ReadmeResponse: Decodable {
-    let content: String
-    let encoding: String
-    let html_url: String
-    let size: Int
 }
 struct StarredPage { let items: [Repository]; let hasMore: Bool }
 struct SearchPage { let items: [Repository]; let total: Int; let incomplete: Bool }

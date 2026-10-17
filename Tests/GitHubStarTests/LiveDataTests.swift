@@ -33,7 +33,7 @@ struct DataValidation {
         if ProcessInfo.processInfo.environment["GITHUBSTAR_LIVE_TEST"] == "1" {
             let client = GitHubClient()
             let readme = try await client.readme(fullName: "swiftlang/swift")
-            precondition(!readme.markdown.isEmpty && readme.sourceURL.host == "github.com")
+            precondition(!readme.html.isEmpty && readme.sourceURL.host == "github.com")
             let result = try await client.search(query: "repo:swiftlang/swift", language: "", page: 1)
             precondition(result.items.first?.fullName == "swiftlang/swift")
             precondition((result.items.first?.stars ?? 0) > 1000)
