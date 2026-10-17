@@ -15,14 +15,16 @@ final class ActivityStore: ObservableObject {
     @Published private(set) var isLoadingRepository = false
     @Published private(set) var repositoryError: String?
     private let account: GitHubAccountStore
+    private let session: URLSession
     private var subscription: AnyCancellable?
     private var page = 0
     private var generation = UUID()
     private var repositoryGeneration = UUID()
     private var repositories: [String: Repository] = [:]
 
-    init(account: GitHubAccountStore) {
+    init(account: GitHubAccountStore, session: URLSession = .shared) {
         self.account = account
+        self.session = session
         subscription = account.$sessionID.dropFirst().sink { [weak self] _ in self?.reset() }
     }
     var visibleItems: [GitHubEvent] {
@@ -51,7 +53,7 @@ final class ActivityStore: ObservableObject {
         isLoading = true; error = nil
         defer { if request == generation { isLoading = false } }
         do {
-            let result = try await GitHubClient(token: token).receivedEvents(login: user.login, page: nextPage)
+            let result = try await GitHubClient(token: token, session: self.session).receivedEvents(login: user.login, page: nextPage)
             try Task.checkCancellation()
             guard request == generation, session == account.sessionID else { return }
             let previous = more ? items : []
@@ -62,6 +64,7 @@ final class ActivityStore: ObservableObject {
         } catch {
             guard !Task.isCancelled, request == generation, session == account.sessionID else { return }
             self.error = error.localizedDescription
+            account.handleUnauthorized(error, session: session)
         }
     }
     func loadSelectedRepository() async {
@@ -74,13 +77,14 @@ final class ActivityStore: ObservableObject {
         isLoadingRepository = true
         defer { if request == repositoryGeneration { isLoadingRepository = false } }
         do {
-            let repo = try await GitHubClient(token: token).repository(fullName: name)
+            let repo = try await GitHubClient(token: token, session: self.session).repository(fullName: name)
             try Task.checkCancellation()
             guard request == repositoryGeneration, session == account.sessionID, selected?.repo.name == name else { return }
             repositories[name] = repo; selectedRepository = repo
         } catch {
             guard !Task.isCancelled, request == repositoryGeneration, session == account.sessionID else { return }
             repositoryError = error.localizedDescription
+            account.handleUnauthorized(error, session: session)
         }
     }
 }

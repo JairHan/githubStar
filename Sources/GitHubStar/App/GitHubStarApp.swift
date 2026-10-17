@@ -33,7 +33,7 @@ struct GitHubStarApp: App {
                     .keyboardShortcut("r", modifiers: .command)
                     .disabled(store.feed == .activity ? activity.isLoading : store.isLoading)
                 Button("在 GitHub 打开") { if let repo = commandRepository { NSWorkspace.shared.open(repo.url) } }.keyboardShortcut("o", modifiers: .command).disabled(commandRepository == nil)
-                Button("Star / 取消 Star") { if let repo = commandRepository { store.requestStar(repo) } }.keyboardShortcut("d", modifiers: .command).disabled(commandRepository == nil)
+                Button(commandRepository.map { store.starActionTitle($0) } ?? "Star / 取消 Star") { if let repo = commandRepository { store.requestStar(repo) } }.keyboardShortcut("d", modifiers: .command).disabled(commandRepository == nil || commandRepository.map { store.starIsBusy($0) } == true)
             }
         }
         Settings { SettingsView(account: account).frame(width: 520) }

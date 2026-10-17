@@ -24,12 +24,21 @@ struct SidebarView: View {
             }.listStyle(.sidebar)
             VStack(alignment: .leading, spacing: 8) {
                 Label("为好项目留一颗星", systemImage: "sparkles").font(.caption)
-                Text("探索 · Star · 构建").font(.caption2).foregroundStyle(.secondary)
+                Label("探索 · Star · 构建", systemImage: "safari").font(.caption2).foregroundStyle(.secondary)
                 Button { account.showsLogin = true } label: {
                     Label(account.user.map { "@" + $0.login } ?? "登录 GitHub", systemImage: "person.crop.circle")
                 }.buttonStyle(.plain).font(.callout)
                 SettingsLink { Label("设置与数据说明", systemImage: "gearshape") }.buttonStyle(.plain).font(.caption).padding(.top, 8)
-            }.padding(18).foregroundStyle(.secondary)
+            }.labelStyle(SidebarFooterLabelStyle()).padding(18).foregroundStyle(.secondary)
         }.navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 250)
+    }
+}
+
+private struct SidebarFooterLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            configuration.icon.frame(width: 18)
+            configuration.title
+        }
     }
 }

@@ -2,12 +2,18 @@ import SwiftUI
 
 struct RepositoryDetailView: View {
     let repo: Repository
-    let saved: Bool
-    let signedIn: Bool
+    let saved: Bool?
+    @ObservedObject var account: GitHubAccountStore
+    @StateObject private var readme: ReadmeStore
     let busy: Bool
     let error: String?
     let onSave: () -> Void
     @ViewState private var copied = false
+    private var signedIn: Bool { account.isSignedIn }
+    init(repo: Repository, saved: Bool?, account: GitHubAccountStore, busy: Bool, error: String?, onSave: @escaping () -> Void) {
+        self.repo = repo; self.saved = saved; self.account = account; self.busy = busy; self.error = error; self.onSave = onSave
+        _readme = StateObject(wrappedValue: ReadmeStore(account: account))
+    }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -29,6 +35,7 @@ struct RepositoryDetailView: View {
                         Text("来自 GitHub Trending \(repo.period == "week" ? "周" : "日")榜，不代表全站所有仓库的涨星排名。").font(.caption2).foregroundStyle(.secondary)
                     }.padding(16).frame(maxWidth: .infinity, alignment: .leading).background(.green.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
                 }
+                else if repo.period != nil { Text("新增 Star 暂无数据").font(.caption).foregroundStyle(.secondary) }
                 if !repo.topics.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("项目主题").font(.caption).foregroundStyle(.secondary)
@@ -41,21 +48,24 @@ struct RepositoryDetailView: View {
                     Button(action: onSave) {
                         HStack {
                             if busy { ProgressView().controlSize(.small) }
-                            Label(signedIn ? (saved ? "已 Star · 点击取消" : "Star 仓库") : "登录 GitHub 后 Star", systemImage: saved ? "star.fill" : "star")
+                            Label(signedIn ? (saved.map { $0 ? "已 Star · 点击取消" : "Star 仓库" } ?? "查询 Star 状态") : "登录 GitHub 后 Star", systemImage: saved == true ? "star.fill" : (signedIn && saved == nil ? "questionmark.circle" : "star"))
                         }.frame(maxWidth: .infinity)
                     }.controlSize(.large).disabled(busy)
                     if let error { Text(error).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
                     Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(repo.url.absoluteString, forType: .string); copied = true } label: { Label(copied ? "链接已复制" : "复制链接", systemImage: "link") }.buttonStyle(.plain).foregroundStyle(.secondary).font(.caption)
                 }
                 Text("Star 与取消 Star 将直接更新你的 GitHub 账号。").font(.caption2).foregroundStyle(.tertiary)
+                Divider()
+                ReadmeView(store: readme, repo: repo)
                 Spacer()
             }.padding(28).frame(maxWidth: .infinity, alignment: .leading)
         }.frame(minWidth: 290).onChange(of: repo.id) { _, _ in copied = false }
+        .task(id: repo.id + account.sessionID.uuidString) { await readme.load(repo) }
     }
-    private func metric(_ title: String, value: Int, icon: String, color: Color) -> some View {
+    private func metric(_ title: String, value: Int?, icon: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(title, systemImage: icon).font(.caption).foregroundStyle(color)
-            Text(value.formatted()).font(.system(size: 22, weight: .semibold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.6)
+            Text(value.map { $0.formatted() } ?? "暂无数据").font(.system(size: 22, weight: .semibold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.6)
         }.padding(14).frame(maxWidth: .infinity, alignment: .leading).background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
     }
 }

@@ -58,11 +58,12 @@ struct ContentView: View {
                         else {
                             List(selection: $store.selectedID) {
                                 ForEach(Array(store.items.enumerated()), id: \.element.id) { index, repo in
-                                    RepositoryRow(repo: repo, rank: index + 1, saved: store.isSaved(repo))
+                                    RepositoryRow(repo: repo, rank: index + 1, saved: store.starState(repo), signedIn: account.isSignedIn)
                                         .tag(repo.id)
                                         .contextMenu {
                                             Button("在 GitHub 打开") { NSWorkspace.shared.open(repo.url) }
-                                            Button(store.isSaved(repo) ? "取消 Star" : "Star") { store.requestStar(repo) }
+                                            Button(store.starActionTitle(repo)) { store.selectedID = repo.id; store.requestStar(repo) }
+                                                .disabled(store.starIsBusy(repo))
                                             Button("复制仓库链接") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(repo.url.absoluteString, forType: .string) }
                                         }
                                 }
@@ -80,7 +81,7 @@ struct ContentView: View {
                 if store.feed == .activity {
                     ActivityDetailView(activity: activity, store: store, account: account)
                 } else if let repo = store.selected {
-                    RepositoryDetailView(repo: repo, saved: store.isSaved(repo), signedIn: account.isSignedIn, busy: store.starIsBusy(repo), error: store.starError, onSave: { store.requestStar(repo) })
+                    RepositoryDetailView(repo: repo, saved: store.starState(repo), account: account, busy: store.starIsBusy(repo), error: store.starError(for: repo), onSave: { store.requestStar(repo) })
                         .task(id: repo.id + account.sessionID.uuidString) { await store.checkStar(repo) }
                 } else {
                     ContentUnavailableView("选择一个仓库", systemImage: "square.stack.3d.up", description: Text("浏览项目详情，发现下一个灵感。"))
@@ -102,14 +103,17 @@ struct ContentView: View {
             HStack {
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("搜索仓库，例如 swift、AI、stars:>1000", text: $store.query)
+                    TextField(store.feed == .saved ? "筛选已加载的 Stars：名称、描述" : "搜索仓库，例如 swift、AI、stars:>1000", text: $store.query)
                         .textFieldStyle(.plain).focused($searchFocused)
                         .onSubmit { store.submitSearch() }
                     if !store.query.isEmpty {
                         Button { store.query = ""; if store.feed == .saved { store.filterStars() } } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }.buttonStyle(.plain)
                     }
                 }.padding(10).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
-                Button("搜索") { store.submitSearch() }.buttonStyle(.borderedProminent)
+                Button(store.feed == .saved ? "筛选" : "搜索") { store.submitSearch() }.buttonStyle(.borderedProminent)
+                if store.feed == .saved {
+                    Button("全站搜索") { store.searchAll() }.help("使用当前关键词搜索 GitHub 全站")
+                }
             }
             HStack {
                 Picker("语言", selection: $store.language) {
@@ -122,6 +126,7 @@ struct ContentView: View {
             }.font(.caption)
         }.padding(22)
         .onChange(of: store.query) { _, _ in if store.feed == .saved { store.filterStars() } }
+        .onChange(of: store.language) { _, _ in if store.feed == .saved { store.filterStars() } }
     }
     @ViewBuilder private var emptyState: some View {
         if store.isLoading { ProgressView("正在连接 GitHub…").frame(maxWidth: .infinity) }
@@ -141,6 +146,10 @@ struct ContentView: View {
         HStack {
             Text((store.feed == .search || store.feed == .allTime) ? "已显示 \(store.items.count) / \(store.total.formatted()) 个" : "\(store.items.count) 个仓库").font(.caption).foregroundStyle(.secondary)
             if let date = store.updatedAt { Text(date.formatted(date: .abbreviated, time: .shortened)).font(.caption2).foregroundStyle(.secondary) }
+            if store.isShowingCached { Text("上次数据").font(.caption2).foregroundStyle(.orange) }
+            if let warning = store.cacheWarning {
+                Image(systemName: "externaldrive.badge.exclamationmark").foregroundStyle(.orange).help(warning).accessibilityLabel(warning)
+            }
             Spacer()
             if store.canLoadMore { Button("加载更多") { Task { await store.load(more: true) } }.disabled(store.isLoading) }
             if store.incomplete { Text("部分结果").font(.caption).foregroundStyle(.orange) }

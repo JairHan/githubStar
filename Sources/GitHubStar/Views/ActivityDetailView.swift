@@ -17,8 +17,8 @@ struct ActivityDetailView: View {
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(22)
                     Divider()
                     if let repo = activity.selectedRepository, repo.fullName.lowercased() == event.repo.name.lowercased() {
-                        RepositoryDetailView(repo: repo, saved: store.isSaved(repo), signedIn: account.isSignedIn,
-                            busy: store.starIsBusy(repo), error: store.starError, onSave: { store.requestStar(repo) })
+                        RepositoryDetailView(repo: repo, saved: store.starState(repo), account: account,
+                            busy: store.starIsBusy(repo), error: store.starError(for: repo), onSave: { store.requestStar(repo) })
                             .task(id: repo.id + account.sessionID.uuidString) { await store.checkStar(repo) }
                     } else if activity.isLoadingRepository {
                         ProgressView("正在加载仓库详情…").frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -19,6 +19,10 @@ struct AccountView: View {
                 }
             }
             if let error = account.error { Text(error).font(.callout).foregroundStyle(.orange).textSelection(.enabled) }
+            if account.user == nil && account.error != nil && account.canRetryRestore {
+                Button("重试恢复本机登录") { Task { await account.restore() } }
+                    .disabled(account.isRestoring || account.isBusy)
+            }
             Divider()
             if account.clientID.isEmpty {
                 Label("此构建尚未启用 GitHub 登录", systemImage: "info.circle").foregroundStyle(.secondary)

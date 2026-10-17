@@ -3,7 +3,8 @@ import Foundation
 enum GitHubError: LocalizedError {
     case message(String)
     case unauthorized
-    var errorDescription: String? { switch self { case .message(let s): return s; case .unauthorized: return "GitHub 登录已失效，请重新授权。" } }
+    case notFound
+    var errorDescription: String? { switch self { case .message(let s): return s; case .unauthorized: return "GitHub 登录已失效，请重新授权。"; case .notFound: return "GitHub 未找到请求的内容。" } }
 }
 struct GitHubClient {
     var token: String? = nil
@@ -23,6 +24,7 @@ struct GitHubClient {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw GitHubError.message("服务器响应无效。") }
         if http.statusCode == 401 { throw GitHubError.unauthorized }
+        if http.statusCode == 404 { throw GitHubError.notFound }
         if http.statusCode == 403 || http.statusCode == 429 { throw GitHubError.message("GitHub 拒绝请求：权限不足或请求额度耗尽，请检查授权或稍后重试。") }
         guard (200..<300).contains(http.statusCode) else { throw GitHubError.message("GitHub 返回 HTTP \(http.statusCode)，请检查查询语法或稍后重试。") }
         return (data, http)
@@ -32,9 +34,8 @@ struct GitHubClient {
         if !language.isEmpty { url.path += "/" + language.lowercased().replacingOccurrences(of: " ", with: "-") }
         url.queryItems = [URLQueryItem(name: "since", value: weekly ? "weekly" : "daily")]
         let data = try await fetch(url.url!)
-        let items = TrendingParser.parse(String(decoding: data, as: UTF8.self), period: weekly ? "week" : "day")
-        guard !items.isEmpty else { throw GitHubError.message("该语言暂无 Trending 数据，或 GitHub 页面结构发生变化。请切换全部语言后重试。") }
-        return weekly ? items.sorted { ($0.gain ?? 0) > ($1.gain ?? 0) } : items
+        let items = try TrendingParser.validatedParse(String(decoding: data, as: UTF8.self), period: weekly ? "week" : "day")
+        return weekly ? items.sorted { ($0.gain ?? -1) > ($1.gain ?? -1) } : items
     }
     func search(query: String, language: String, page: Int) async throws -> SearchPage {
         var parts = [query.isEmpty ? "stars:>1" : query]
@@ -68,6 +69,11 @@ struct GitHubClient {
         return ActivityPage(items: events, hasMore: next && page < 3)
     }
     func repository(fullName: String) async throws -> Repository {
+        let url = try repositoryURL(fullName: fullName)
+        let data = try await fetch(url, api: true)
+        return try JSONDecoder().decode(APIRepo.self, from: data).repository
+    }
+    private func repositoryURL(fullName: String) throws -> URL {
         let parts = fullName.split(separator: "/", omittingEmptySubsequences: false)
         guard parts.count == 2, parts.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." &&
             $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "-_.".contains($0)) } }) else {
@@ -75,8 +81,22 @@ struct GitHubClient {
         }
         var url = URLComponents(string: "https://api.github.com")!
         url.path = "/repos/" + fullName
-        let data = try await fetch(url.url!, api: true)
-        return try JSONDecoder().decode(APIRepo.self, from: data).repository
+        return url.url!
+    }
+    func readme(fullName: String) async throws -> ReadmeDocument {
+        let url = try repositoryURL(fullName: fullName).appendingPathComponent("readme")
+        let data = try await fetch(url, api: true)
+        let result = try JSONDecoder().decode(ReadmeResponse.self, from: data)
+        guard result.encoding == "base64", result.size <= 1_000_000,
+              let content = Data(base64Encoded: result.content, options: .ignoreUnknownCharacters),
+              let markdown = String(data: content, encoding: .utf8) else {
+            throw GitHubError.message("README 过大或不是 UTF-8 文本，请在 GitHub 查看。")
+        }
+        guard let source = URL(string: result.html_url), source.scheme == "https", source.host == "github.com" else {
+            throw GitHubError.message("README 地址无效。")
+        }
+        let limit = 60_000
+        return ReadmeDocument(markdown: String(markdown.prefix(limit)), sourceURL: source, isTruncated: markdown.count > limit)
     }
     func starred(page: Int) async throws -> StarredPage {
         guard token != nil else { throw GitHubError.unauthorized }
@@ -110,6 +130,12 @@ struct GitHubClient {
         if http.statusCode == 403 { throw GitHubError.message("无法更新 Star：权限不足或 GitHub 限流，请检查授权后重试。") }
         throw GitHubError.message("Star 请求失败（HTTP \(http.statusCode)），请稍后重试。")
     }
+}
+private struct ReadmeResponse: Decodable {
+    let content: String
+    let encoding: String
+    let html_url: String
+    let size: Int
 }
 struct StarredPage { let items: [Repository]; let hasMore: Bool }
 struct SearchPage { let items: [Repository]; let total: Int; let incomplete: Bool }

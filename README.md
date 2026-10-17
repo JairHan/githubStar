@@ -10,6 +10,7 @@
 - 总星榜：GitHub 搜索 API，按累计 Star 降序。
 - 关键词搜索：支持 `swift`、`topic:ai`、`stars:>1000` 等 GitHub 查询语法。
 - 语言筛选、分页、仓库详情、打开 GitHub、复制链接。
+- 仓库详情内的 README 原生文本预览，支持标题、列表文本、代码块和链接。
 - GitHub 设备授权登录、Star / 取消 Star、分页读取我的 Stars。
 - 公开榜单离线缓存；登录令牌保存至 macOS 钥匙串。
 - 原生侧栏、菜单、设置窗口，自动适应系统浅色及深色外观。
@@ -32,7 +33,7 @@ DMG 使用 660 × 480 的安装窗口：应用在左、Applications 在右，配
 ./script/build_and_run.sh --release
 ```
 
-测试脚本直接编译生产数据层并运行断言，不需要 XCTest 或 Swift Testing 宏插件。运行在线检查：
+测试脚本直接编译生产数据层和 Store 并运行断言，不需要 XCTest 或 Swift Testing 宏插件。覆盖断网恢复登录、401 会话清理、乱序响应、退出时仍在请求、Star 与分页并发、离线缓存和 README。运行在线检查：
 
 ```bash
 GITHUBSTAR_LIVE_TEST=1 ./script/test.sh
@@ -50,13 +51,19 @@ GITHUBSTAR_LIVE_TEST=1 ./script/test.sh
 
 ## 数据口径与限制
 
-周涨星是 GitHub Trending 周榜的新增 Star 数，只对入榜仓库排序，并非 GitHub 全站的周涨星完整排名。Trending 数据通过网页解析，GitHub 调整 HTML 结构时需要更新解析器；解析失败会提示，不会填入虚构数据。
+周涨星是 GitHub Trending 周榜的新增 Star 数，只对入榜仓库排序，并非 GitHub 全站的周涨星完整排名。Trending 数据通过网页解析，GitHub 调整 HTML 结构时需要更新解析器；总 Star 数解析失败会提示，缺失的 Fork 和涨星数显示“暂无数据”，不会填入 0。
 
 总星榜和搜索采用 [GitHub REST Search API](https://docs.github.com/en/rest/search/search#search-repositories)。每页 30 条，API 限制最多浏览前 1,000 条。匿名 API 额度有限，限流时请稍后刷新。GitHub 没有保证榜单数据的实时性。
 
-登录后 Star / 取消 Star 会直接更新 GitHub 账号；操作成功后才更新界面状态。我的 Stars 每页 100 条，可继续加载；语言和关键词只筛选已加载的项目。Star 操作后会刷新列表以保持分页与服务器一致。
+登录后 Star / 取消 Star 会直接更新 GitHub 账号；操作成功后才更新界面状态。未查询的状态显示为未知；此时点击“查询 Star 状态”只查询，不修改账号。我的 Stars 每页 100 条，可继续加载；语言和关键词只筛选已加载的项目，按回车或“筛选”保持当前页面，通过独立的“全站搜索”按钮切换到 GitHub 搜索。Star 操作后会刷新列表以保持分页与服务器一致。
+
+公开 Trending 榜单在登录前后均可读写离线缓存；登录后的搜索和总星榜响应不写入缓存，但可回退到已有匿名缓存。缓存保存最多 80 组查询，读取时检查 7 天有效期，文件读写在独立 actor 中执行。刷新期间保留当前数据与选择；失败时标注“上次数据”及原更新时间。
+
+README 使用 [GitHub 仓库内容 API](https://docs.github.com/en/rest/repos/contents#get-a-repository-readme)读取，以原生 SwiftUI 文本展示，不运行 HTML 或脚本。图片、表格和完整 GitHub 排版请通过“在 GitHub 查看完整 README”打开。文本预览最多显示 60,000 字符，README 仅在内存缓存 5 分钟、最多 20 项，退出或切换账号时清空。
 
 登录令牌保存在 macOS 钥匙串，不写入项目、JSON、UserDefaults 或日志。账号数据只保存在内存中，切换账号或退出后清空；授权后的搜索结果不写入离线缓存。旧版 `favorites.json` 会保留，但不再作为 Stars 列表，也不会自动批量 Star。
+
+启动时临时断网不会删除凭据，可在账号面板重试恢复本机登录。收到当前会话的 401 响应后会清理失效会话和本机凭据，并打开重新授权面板；旧会话的延迟错误不会清理新会话。
 
 ## 发行者：一次性配置 GitHub 登录
 

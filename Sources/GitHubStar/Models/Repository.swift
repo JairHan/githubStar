@@ -1,12 +1,12 @@
 import Foundation
 
-struct Repository: Codable, Identifiable, Hashable {
+struct Repository: Codable, Identifiable, Hashable, Sendable {
     var id: String { fullName }
     let fullName: String
     let description: String
     let language: String?
-    let stars: Int
-    let forks: Int
+    let stars: Int?
+    let forks: Int?
     var gain: Int?
     var period: String?
     var topics: [String] = []

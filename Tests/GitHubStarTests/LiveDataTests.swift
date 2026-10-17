@@ -7,6 +7,9 @@ struct DataValidation {
         catch { FileHandle.standardError.write(Data("FAIL: \(error.localizedDescription)\n".utf8)); exit(1) }
     }
     static func run() async throws {
+        try await StoreTests.run()
+        try await ReadmeTests.run()
+        try TrendingParserTests.realPageFixture()
         try await GitHubActivityTests.run()
         try await GitHubAuthenticationTests.run()
         TrendingParserTests.weeklyStatsAndEntities()
@@ -17,7 +20,7 @@ struct DataValidation {
             let html = try String(contentsOfFile: path, encoding: .utf8)
             let repos = TrendingParser.parse(html, period: "week")
             precondition(repos.count > 5)
-            precondition(repos.allSatisfy { $0.stars > 0 && ($0.gain ?? 0) > 0 })
+            precondition(repos.allSatisfy { ($0.stars ?? 0) > 0 && ($0.gain ?? 0) > 0 })
             precondition(Set(repos.map(\.id)).count == repos.count)
             print("PASS: real weekly HTML, \(repos.count) repositories")
         }
@@ -29,13 +32,15 @@ struct DataValidation {
         }
         if ProcessInfo.processInfo.environment["GITHUBSTAR_LIVE_TEST"] == "1" {
             let client = GitHubClient()
+            let readme = try await client.readme(fullName: "swiftlang/swift")
+            precondition(!readme.markdown.isEmpty && readme.sourceURL.host == "github.com")
             let result = try await client.search(query: "repo:swiftlang/swift", language: "", page: 1)
             precondition(result.items.first?.fullName == "swiftlang/swift")
             precondition((result.items.first?.stars ?? 0) > 1000)
             let weekly = try await client.trending(weekly: true, language: "")
             precondition(weekly.count > 5)
             precondition(zip(weekly, weekly.dropFirst()).allSatisfy { ($0.gain ?? 0) >= ($1.gain ?? 0) })
-            print("PASS: live search and weekly feed sorted by gained stars")
+            print("PASS: live README, search and weekly feed sorted by gained stars")
         }
     }
 }

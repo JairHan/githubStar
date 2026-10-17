@@ -1,7 +1,13 @@
 import Foundation
 import Security
 
-struct KeychainCredentialStore {
+protocol CredentialStore {
+    func read() throws -> GitHubCredential?
+    func save(_ credential: GitHubCredential) throws
+    func delete() throws
+}
+
+struct KeychainCredentialStore: CredentialStore {
     private let service = "com.jair.githubstar.github-oauth"
     private let account = "signed-in-user"
     private var query: [String: Any] {
